@@ -894,10 +894,37 @@ export default function App() {
   const [hovered, setHovered] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [search, setSearch] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
   const componentRefs = useRef({});
   const containerRef = useRef(null);
   const [svgDims, setSvgDims] = useState({ w: 0, h: 0 });
   const [paths, setPaths] = useState([]);
+
+  // Compute search suggestions from all COMPONENTS
+  const suggestions = search.trim().length > 0
+    ? Object.entries(COMPONENTS)
+        .filter(([, c]) => {
+          const q = search.toLowerCase();
+          return (
+            c.name.toLowerCase().includes(q) ||
+            c.short.toLowerCase().includes(q) ||
+            (c.tag && c.tag.toLowerCase().includes(q))
+          );
+        })
+        .slice(0, 8)
+    : [];
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const orderedIds = Object.keys(COMPONENTS);
   const currentIdx = selected ? orderedIds.indexOf(selected) : -1;
@@ -1084,28 +1111,91 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{
-            position: 'relative',
-            flex: 1,
-            maxWidth: 360,
-          }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8a8270' }} />
+          <div ref={searchRef} style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8a8270', zIndex: 1 }} />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onKeyDown={(e) => { if (e.key === 'Escape') { setShowSuggestions(false); setSearch(''); } }}
               placeholder="Search: hpa, ingress, csi, namespace..."
+              autoComplete="off"
               style={{
                 width: '100%',
                 padding: '9px 12px 9px 34px',
-                borderRadius: 999,
+                borderRadius: showSuggestions && suggestions.length > 0 ? '14px 14px 0 0' : 999,
                 border: '1px solid #e8e0cc',
+                borderBottom: showSuggestions && suggestions.length > 0 ? '1px solid #f0e8d8' : '1px solid #e8e0cc',
                 background: '#fff',
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: 12,
                 outline: 'none',
                 color: '#2a2a2a',
+                transition: 'border-radius 0.15s',
               }}
             />
+            {/* Suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                background: '#fff',
+                border: '1px solid #e8e0cc',
+                borderTop: 'none',
+                borderRadius: '0 0 14px 14px',
+                boxShadow: '0 12px 32px -8px rgba(0,0,0,0.14)',
+                zIndex: 100,
+                overflow: 'hidden',
+              }}>
+                {suggestions.map(([id, c], idx) => (
+                  <div
+                    key={id}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setSearch('');
+                      setShowSuggestions(false);
+                      setSelected(id);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '9px 14px',
+                      cursor: 'pointer',
+                      borderTop: idx > 0 ? '1px solid #f5f0e8' : 'none',
+                      transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#faf6ee'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span style={{
+                      display: 'inline-block',
+                      width: 8, height: 8,
+                      borderRadius: 2,
+                      background: c.color || '#326ce5',
+                      flexShrink: 0,
+                      transform: 'rotate(45deg)',
+                    }} />
+                    <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#1a1a1a', fontWeight: 500, flex: 1 }}>
+                      {c.name}
+                    </span>
+                    <span style={{
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 10,
+                      color: '#8a8270',
+                      letterSpacing: '0.08em',
+                      background: '#f5f0e8',
+                      padding: '2px 7px',
+                      borderRadius: 999,
+                    }}>
+                      {c.tag || c.group}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <button
