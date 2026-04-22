@@ -963,6 +963,17 @@ export default function App() {
   }, []);
 
   const isHighlighted = (id) => {
+    if (search) {
+      const q = search.toLowerCase();
+      const c = COMPONENTS[id];
+      if (!c) return false;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.short.toLowerCase().includes(q) ||
+        c.intro.toLowerCase().includes(q) ||
+        (c.tag && c.tag.toLowerCase().includes(q))
+      );
+    }
     if (!selected && !hovered) return true;
     const active = selected || hovered;
     if (active === id) return true;
@@ -970,6 +981,9 @@ export default function App() {
   };
 
   const isPathActive = (p) => {
+    if (search) {
+      return isHighlighted(p.from) && isHighlighted(p.to);
+    }
     const active = selected || hovered;
     if (!active) return false;
     return p.from === active || p.to === active;
@@ -980,7 +994,13 @@ export default function App() {
     const q = search.toLowerCase();
     return list.filter((id) => {
       const c = COMPONENTS[id];
-      return c.name.toLowerCase().includes(q) || c.short.toLowerCase().includes(q) || c.intro.toLowerCase().includes(q);
+      if (!c) return false;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.short.toLowerCase().includes(q) ||
+        c.intro.toLowerCase().includes(q) ||
+        (c.tag && c.tag.toLowerCase().includes(q))
+      );
     });
   };
 
