@@ -1717,6 +1717,8 @@ export default function App() {
             </a>
           </div>
 
+          <VisitorCounter />
+
           <div style={{
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 10,
@@ -2210,6 +2212,108 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
 // ============================================================
 function initialsOf(name) {
   return name.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase();
+}
+
+// ============================================================
+// VISITOR COUNTER
+// ============================================================
+const VISITOR_BASE = 1289;
+
+function VisitorCounter() {
+  const [count, setCount] = useState(null);
+  const [animCount, setAnimCount] = useState(VISITOR_BASE);
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    // hit countapi — increments on every real page load
+    fetch('https://api.countapi.xyz/hit/anatomyof-k8s/visitors')
+      .then((r) => r.json())
+      .then((data) => {
+        const real = data.value || 0;
+        const display = VISITOR_BASE + real;
+        setCount(display);
+
+        // Animate the number scrolling up
+        const start = VISITOR_BASE;
+        const diff = display - start;
+        const duration = 1400;
+        const startTime = performance.now();
+
+        const step = (now) => {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          // ease-out cubic
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setAnimCount(Math.floor(start + diff * eased));
+          if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      })
+      .catch(() => {
+        // API unavailable — show base count
+        setCount(VISITOR_BASE);
+        setAnimCount(VISITOR_BASE);
+      });
+  }, []);
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 6,
+      padding: '18px 32px',
+      borderRadius: 16,
+      border: '1px solid #e8e0cc',
+      background: 'linear-gradient(135deg, #fff 0%, #f9f5ee 100%)',
+      boxShadow: '0 4px 16px -6px rgba(50,108,229,0.10)',
+      minWidth: 180,
+    }}>
+      <div style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 9,
+        letterSpacing: '0.22em',
+        textTransform: 'uppercase',
+        color: '#8a8270',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+      }}>
+        <span style={{
+          display: 'inline-block',
+          width: 6, height: 6,
+          borderRadius: '50%',
+          background: '#16a34a',
+          animation: 'pulse-dot 1.6s ease-in-out infinite',
+        }} />
+        Total Visitors
+      </div>
+      <div style={{
+        fontFamily: "'Instrument Serif', serif",
+        fontSize: 36,
+        fontWeight: 400,
+        letterSpacing: '-0.03em',
+        color: '#326ce5',
+        lineHeight: 1,
+        minWidth: 100,
+        textAlign: 'center',
+        transition: 'color 0.3s',
+      }}>
+        {count === null ? '—' : animCount.toLocaleString()}
+      </div>
+      <div style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 9,
+        color: '#b0a892',
+        letterSpacing: '0.10em',
+      }}>
+        and counting
+      </div>
+    </div>
+  );
 }
 
 // ----- Social footer helpers -----
