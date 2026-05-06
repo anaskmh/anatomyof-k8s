@@ -1,9 +1,9 @@
 {
-  "name": "kubernetes-explainer",
+  "name": "devops-atlas",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Interactive visual explainer for Kubernetes architecture",
+  "description": "Interactive visual explainer for Kubernetes, Docker, and DevOps systems",
   "author": "Anas Kadambalath",
   "scripts": {
     "dev": "vite",

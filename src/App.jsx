@@ -5,7 +5,7 @@ import { X, ChevronLeft, ChevronRight, Search, Play, Pause, ExternalLink, BookOp
 // ============================================================
 // COMPONENT DATA — every Kubernetes component with real examples
 // ============================================================
-const COMPONENTS = {
+const KUBERNETES_COMPONENTS = {
   // ---------- USER SIDE ----------
   user: {
     group: 'client',
@@ -822,7 +822,7 @@ const COMPONENTS = {
 // ============================================================
 // GROUPS for the diagram
 // ============================================================
-const GROUPS = [
+const KUBERNETES_GROUPS = [
   {
     id: 'client',
     title: 'User / Client',
@@ -856,14 +856,14 @@ const GROUPS = [
 ];
 
 // Map each component to its group color (for coloring the cards themselves)
-const GROUP_COLOR_MAP = {
+const KUBERNETES_GROUP_COLOR_MAP = {
   user: '#2563eb', kubectl: '#2563eb',
   api: '#7c3aed', etcd: '#7c3aed', scheduler: '#7c3aed', 'controller-manager': '#7c3aed', 'cloud-controller': '#7c3aed',
   kubelet: '#16a34a', 'kube-proxy': '#16a34a', 'container-runtime': '#16a34a', pod: '#16a34a',
 };
 
 // Secondary sections (below main diagram)
-const SECONDARY_SECTIONS = [
+const KUBERNETES_SECONDARY_SECTIONS = [
   { id: 'workload', title: 'Workload APIs', color: '#db2777', components: ['deployment', 'replicaset', 'statefulset', 'daemonset', 'job'] },
   { id: 'networking', title: 'Networking', color: '#0891b2', components: ['service', 'ingress', 'network-policy', 'cni', 'core-dns'] },
   { id: 'storage', title: 'Storage', color: '#0d9488', components: ['pv', 'pvc', 'storage-class', 'csi'] },
@@ -873,7 +873,7 @@ const SECONDARY_SECTIONS = [
 ];
 
 // Flow connections for animated lines in main diagram
-const FLOWS = [
+const KUBERNETES_FLOWS = [
   ['user', 'kubectl'],
   ['kubectl', 'api'],
   ['api', 'etcd'],
@@ -890,32 +890,43 @@ const FLOWS = [
 // MAIN APP
 // ============================================================
 export default function App() {
+  const [activeTopic, setActiveTopic] = useState('kubernetes');
   const [selected, setSelected] = useState(null);
+  const [selectedFuture, setSelectedFuture] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [search, setSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeJourney, setActiveJourney] = useState(0);
   const searchRef = useRef(null);
   const componentRefs = useRef({});
   const containerRef = useRef(null);
   const [svgDims, setSvgDims] = useState({ w: 0, h: 0 });
   const [paths, setPaths] = useState([]);
 
-  // Compute search suggestions from all COMPONENTS
+  const topic = TOPICS[activeTopic];
+  const components = topic.components;
+  const groups = topic.groups;
+  const flows = topic.flows;
+  const secondarySections = topic.secondarySections;
+  const journey = topic.journey;
+  const orderedIds = Object.keys(components);
+  const currentIdx = selected ? orderedIds.indexOf(selected) : -1;
+
   const suggestions = search.trim().length > 0
-    ? Object.entries(COMPONENTS)
+    ? Object.entries(components)
         .filter(([, c]) => {
           const q = search.toLowerCase();
           return (
             c.name.toLowerCase().includes(q) ||
             c.short.toLowerCase().includes(q) ||
+            c.intro.toLowerCase().includes(q) ||
             (c.tag && c.tag.toLowerCase().includes(q))
           );
         })
         .slice(0, 8)
     : [];
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClick = (e) => {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
@@ -926,53 +937,52 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const orderedIds = Object.keys(COMPONENTS);
-  const currentIdx = selected ? orderedIds.indexOf(selected) : -1;
+  useEffect(() => {
+    setSelected(null);
+    setSelectedFuture(null);
+    setHovered(null);
+    setSearch('');
+    setShowSuggestions(false);
+    setActiveJourney(0);
+    componentRefs.current = {};
+  }, [activeTopic]);
+
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+    const timer = window.setInterval(() => {
+      setActiveJourney((current) => (current + 1) % journey.length);
+    }, 2400);
+    return () => window.clearInterval(timer);
+  }, [isPlaying, journey.length]);
 
   const computePaths = () => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
     setSvgDims({ w: containerRect.width, h: containerRect.height });
 
-    const newPaths = FLOWS.map(([fromId, toId]) => {
+    const newPaths = flows.map(([fromId, toId]) => {
       const fromEl = componentRefs.current[fromId];
       const toEl = componentRefs.current[toId];
       if (!fromEl || !toEl) return null;
 
       const fromRect = fromEl.getBoundingClientRect();
       const toRect = toEl.getBoundingClientRect();
-
-      // Determine which side of each box the connector should start/end
-      // based on horizontal positions (left-to-right flow is the default)
       const fromCenterX = fromRect.left + fromRect.width / 2;
       const toCenterX = toRect.left + toRect.width / 2;
       const leftToRight = fromCenterX < toCenterX;
-
       const x1 = (leftToRight ? fromRect.right : fromRect.left) - containerRect.left;
       const y1 = fromRect.top - containerRect.top + fromRect.height / 2;
       const x2 = (leftToRight ? toRect.left : toRect.right) - containerRect.left;
       const y2 = toRect.top - containerRect.top + toRect.height / 2;
-
-      // Smooth bezier: control points pulled ~55% toward the target horizontally,
-      // producing gracefully curving flows rather than tight S-curves.
       const dx = Math.abs(x2 - x1);
       const curveStrength = Math.max(60, dx * 0.55);
       const cp1x = leftToRight ? x1 + curveStrength : x1 - curveStrength;
       const cp2x = leftToRight ? x2 - curveStrength : x2 + curveStrength;
       const d = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
+      const colorFrom = topic.groupColorMap[fromId] || components[fromId]?.color || '#64748b';
+      const colorTo = topic.groupColorMap[toId] || components[toId]?.color || '#64748b';
 
-      const colorFrom = GROUP_COLOR_MAP[fromId] || COMPONENTS[fromId]?.color || '#64748b';
-      const colorTo = GROUP_COLOR_MAP[toId] || COMPONENTS[toId]?.color || '#64748b';
-
-      return {
-        from: fromId,
-        to: toId,
-        d,
-        x1, y1, x2, y2,
-        colorFrom,
-        colorTo,
-        color: colorFrom, // back-compat
-      };
+      return { from: fromId, to: toId, d, x1, y1, x2, y2, colorFrom, colorTo };
     }).filter(Boolean);
 
     setPaths(newPaths);
@@ -987,12 +997,12 @@ export default function App() {
       ro.disconnect();
       window.removeEventListener('resize', computePaths);
     };
-  }, []);
+  }, [activeTopic]);
 
   const isHighlighted = (id) => {
     if (search) {
       const q = search.toLowerCase();
-      const c = COMPONENTS[id];
+      const c = components[id];
       if (!c) return false;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -1004,23 +1014,23 @@ export default function App() {
     if (!selected && !hovered) return true;
     const active = selected || hovered;
     if (active === id) return true;
-    return FLOWS.some(([f, t]) => (f === active && t === id) || (t === active && f === id));
+    return flows.some(([f, t]) => (f === active && t === id) || (t === active && f === id));
   };
 
-  const isPathActive = (p) => {
+  const isPathActive = (path) => {
     if (search) {
-      return isHighlighted(p.from) && isHighlighted(p.to);
+      return isHighlighted(path.from) && isHighlighted(path.to);
     }
     const active = selected || hovered;
     if (!active) return false;
-    return p.from === active || p.to === active;
+    return path.from === active || path.to === active;
   };
 
   const filteredSecondary = (list) => {
     if (!search) return list;
     const q = search.toLowerCase();
     return list.filter((id) => {
-      const c = COMPONENTS[id];
+      const c = components[id];
       if (!c) return false;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -1031,13 +1041,24 @@ export default function App() {
     });
   };
 
+  const liveStep = journey[activeJourney];
+  const relatedSteps = [
+    journey[(activeJourney - 1 + journey.length) % journey.length],
+    journey[activeJourney],
+    journey[(activeJourney + 1) % journey.length],
+  ];
+
   return (
-    <div style={{ minHeight: '100vh', background: '#fbf8f1', position: 'relative' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'radial-gradient(circle at top left, #fff6d8 0%, #f8efe0 30%, #f5efe7 60%, #eef7ff 100%)',
+      position: 'relative',
+    }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
         * { box-sizing: border-box; }
-        body { margin: 0; background: #fbf8f1; font-family: 'IBM Plex Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { margin: 0; background: #f7efe4; font-family: 'IBM Plex Sans', sans-serif; -webkit-font-smoothing: antialiased; }
 
         .grain::before {
           content: '';
@@ -1064,11 +1085,6 @@ export default function App() {
           to { opacity: 1; transform: translateY(0); }
         }
 
-        @keyframes card-glow {
-          0%, 100% { box-shadow: 0 2px 6px -2px rgba(0,0,0,0.08); }
-          50% { box-shadow: 0 6px 16px -4px rgba(0,0,0,0.18); }
-        }
-
         .comp-card {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           animation: stagger-in 0.5s ease both;
@@ -1082,192 +1098,433 @@ export default function App() {
         .scrollbar-styled::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-styled::-webkit-scrollbar-thumb { background: #d6cfbe; border-radius: 4px; }
         .scrollbar-styled::-webkit-scrollbar-thumb:hover { background: #a89e85; }
+
+        .header-shell { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .header-tools { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: flex-end; }
+        .hero-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr); gap: 26px; align-items: stretch; }
+        .topic-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .diagram-grid { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 32px; margin-top: 30px; position: relative; z-index: 2; }
+        .workflow-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr); gap: 22px; align-items: stretch; }
+        .future-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .detail-panel { width: 480px; max-width: calc(100vw - 40px); }
+
+        @media (max-width: 1120px) {
+          .header-shell { flex-direction: column; align-items: stretch; }
+          .header-tools { flex-wrap: wrap; justify-content: stretch; }
+          .hero-layout, .workflow-grid, .diagram-grid { grid-template-columns: 1fr; }
+          .future-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 760px) {
+          header { padding: 16px 18px !important; }
+          .topic-row, .future-grid { grid-template-columns: 1fr; }
+          .detail-panel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
+        }
       `}</style>
 
       <div className="grain" style={{ position: 'relative', zIndex: 1 }}>
-        {/* ===================== HEADER ===================== */}
         <header style={{
           position: 'sticky',
           top: 0,
           zIndex: 30,
-          background: 'rgba(251, 248, 241, 0.88)',
+          background: 'rgba(247, 239, 228, 0.86)',
           backdropFilter: 'blur(14px)',
           borderBottom: '1px solid #e8e0cc',
           padding: '16px 32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 24,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Helm />
-            <div style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontSize: 26,
-              letterSpacing: '-0.01em',
-              fontWeight: 400,
-            }}>
-              Kubernetes <em style={{ color: '#326ce5' }}>Explainer</em>
+          <div className="header-shell">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <AtlasMark accent={topic.accent} />
+              <div>
+                <div style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  color: '#8a8270',
+                  textTransform: 'uppercase',
+                  marginBottom: 2,
+                }}>
+                  Interactive DevOps learning map
+                </div>
+                <div style={{
+                  fontFamily: "'Instrument Serif', serif",
+                  fontSize: 28,
+                  letterSpacing: '-0.01em',
+                  fontWeight: 400,
+                }}>
+                  DevOps <em style={{ color: topic.accent }}>Atlas</em>
+                </div>
+              </div>
+            </div>
+
+            <div className="header-tools">
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: 6,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.72)',
+                border: '1px solid #e8e0cc',
+                boxShadow: '0 10px 22px -18px rgba(0,0,0,0.25)',
+              }}>
+                {Object.values(TOPICS).map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setActiveTopic(entry.id)}
+                    style={{
+                      border: 'none',
+                      cursor: 'pointer',
+                      borderRadius: 999,
+                      padding: '10px 14px',
+                      background: entry.id === activeTopic ? entry.accent : 'transparent',
+                      color: entry.id === activeTopic ? '#fff' : '#2a2a2a',
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    {entry.name}
+                  </button>
+                ))}
+              </div>
+
+              <div ref={searchRef} style={{ position: 'relative', width: '100%', maxWidth: 360 }}>
+                <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8a8270', zIndex: 1 }} />
+                <input
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setShowSuggestions(false); setSearch(''); } }}
+                  placeholder={activeTopic === 'docker' ? 'Search: buildkit, volume, compose...' : 'Search: ingress, hpa, csi, namespace...'}
+                  autoComplete="off"
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px 9px 34px',
+                    borderRadius: showSuggestions && suggestions.length > 0 ? '14px 14px 0 0' : 999,
+                    border: '1px solid #e8e0cc',
+                    borderBottom: showSuggestions && suggestions.length > 0 ? '1px solid #f0e8d8' : '1px solid #e8e0cc',
+                    background: '#fff',
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 12,
+                    outline: 'none',
+                    color: '#2a2a2a',
+                  }}
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: '#fff',
+                    border: '1px solid #e8e0cc',
+                    borderTop: 'none',
+                    borderRadius: '0 0 14px 14px',
+                    boxShadow: '0 12px 32px -8px rgba(0,0,0,0.14)',
+                    zIndex: 100,
+                    overflow: 'hidden',
+                  }}>
+                    {suggestions.map(([id, c], idx) => (
+                      <div
+                        key={id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSearch('');
+                          setShowSuggestions(false);
+                          setSelected(id);
+                          setSelectedFuture(null);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '9px 14px',
+                          cursor: 'pointer',
+                          borderTop: idx > 0 ? '1px solid #f5f0e8' : 'none',
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-block',
+                          width: 8, height: 8,
+                          borderRadius: 2,
+                          background: c.color || topic.accent,
+                          flexShrink: 0,
+                          transform: 'rotate(45deg)',
+                        }} />
+                        <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#1a1a1a', fontWeight: 500, flex: 1 }}>
+                          {c.name}
+                        </span>
+                        <span style={{
+                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontSize: 10,
+                          color: '#8a8270',
+                          letterSpacing: '0.08em',
+                          background: '#f5f0e8',
+                          padding: '2px 7px',
+                          borderRadius: 999,
+                        }}>
+                          {c.tag || c.group}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px',
+                  border: '1px solid #e8e0cc',
+                  background: '#fff',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 11,
+                  letterSpacing: '0.05em',
+                  color: '#2a2a2a',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                {isPlaying ? 'PAUSE FLOW' : 'PLAY FLOW'}
+              </button>
             </div>
           </div>
+        </header>
 
-          <div ref={searchRef} style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
-            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8a8270', zIndex: 1 }} />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => setShowSuggestions(true)}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setShowSuggestions(false); setSearch(''); } }}
-              placeholder="Search: hpa, ingress, csi, namespace..."
-              autoComplete="off"
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 34px',
-                borderRadius: showSuggestions && suggestions.length > 0 ? '14px 14px 0 0' : 999,
-                border: '1px solid #e8e0cc',
-                borderBottom: showSuggestions && suggestions.length > 0 ? '1px solid #f0e8d8' : '1px solid #e8e0cc',
-                background: '#fff',
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: 12,
-                outline: 'none',
-                color: '#2a2a2a',
-                transition: 'border-radius 0.15s',
-              }}
-            />
-            {/* Suggestions dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
+        <section style={{ padding: '56px 24px 18px', maxWidth: 1400, margin: '0 auto' }}>
+          <div className="hero-layout">
+            <div style={{ padding: '24px 8px 24px 8px', alignSelf: 'center' }}>
               <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                background: '#fff',
-                border: '1px solid #e8e0cc',
-                borderTop: 'none',
-                borderRadius: '0 0 14px 14px',
-                boxShadow: '0 12px 32px -8px rgba(0,0,0,0.14)',
-                zIndex: 100,
-                overflow: 'hidden',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 11,
+                letterSpacing: '0.25em',
+                color: '#8a8270',
+                textTransform: 'uppercase',
+                marginBottom: 18,
               }}>
-                {suggestions.map(([id, c], idx) => (
+                <span style={{
+                  display: 'inline-block',
+                  width: 8, height: 8,
+                  background: topic.accent,
+                  borderRadius: '50%',
+                  marginRight: 10,
+                  verticalAlign: 'middle',
+                  animation: 'pulse-dot 1.8s ease-in-out infinite',
+                }} />
+                {topic.eyebrow}
+              </div>
+              <h1 style={{
+                fontFamily: "'Instrument Serif', serif",
+                fontSize: 'clamp(44px, 7vw, 88px)',
+                lineHeight: 0.96,
+                letterSpacing: '-0.03em',
+                margin: '0 0 18px',
+                fontWeight: 400,
+                maxWidth: 820,
+              }}>
+                <em style={{ color: topic.accent, fontStyle: 'italic', fontWeight: 400 }}>{topic.name}</em>{' '}
+                {activeTopic === 'docker' ? 'from build to runtime.' : 'architecture with the moving parts exposed.'}
+              </h1>
+              <p style={{
+                maxWidth: 720,
+                margin: '0 0 28px',
+                color: '#4a4636',
+                fontSize: 18,
+                lineHeight: 1.6,
+              }}>
+                {topic.heroLead}
+              </p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
+                {topic.heroStats.map((stat) => (
                   <div
-                    key={id}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setSearch('');
-                      setShowSuggestions(false);
-                      setSelected(id);
-                    }}
+                    key={stat}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '9px 14px',
-                      cursor: 'pointer',
-                      borderTop: idx > 0 ? '1px solid #f5f0e8' : 'none',
-                      transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#faf6ee'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <span style={{
-                      display: 'inline-block',
-                      width: 8, height: 8,
-                      borderRadius: 2,
-                      background: c.color || '#326ce5',
-                      flexShrink: 0,
-                      transform: 'rotate(45deg)',
-                    }} />
-                    <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#1a1a1a', fontWeight: 500, flex: 1 }}>
-                      {c.name}
-                    </span>
-                    <span style={{
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontSize: 10,
-                      color: '#8a8270',
-                      letterSpacing: '0.08em',
-                      background: '#f5f0e8',
-                      padding: '2px 7px',
+                      padding: '10px 14px',
                       borderRadius: 999,
-                    }}>
-                      {c.tag || c.group}
-                    </span>
+                      border: `1px solid ${topic.accent}26`,
+                      background: '#fff',
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: '0.08em',
+                      color: '#2a2a2a',
+                    }}
+                  >
+                    {stat}
                   </div>
                 ))}
               </div>
-            )}
-          </div>
 
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px',
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                {Object.values(TOPICS).map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setActiveTopic(entry.id)}
+                    style={{
+                      padding: '12px 18px',
+                      borderRadius: 999,
+                      border: `1px solid ${entry.id === activeTopic ? entry.accent : '#e8e0cc'}`,
+                      background: entry.id === activeTopic ? entry.accent : '#ffffff',
+                      color: entry.id === activeTopic ? '#ffffff' : '#1a1a1a',
+                      fontFamily: "'IBM Plex Sans', sans-serif",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {entry.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.76)',
               border: '1px solid #e8e0cc',
-              background: '#fff',
-              borderRadius: 999,
-              cursor: 'pointer',
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 11,
-              letterSpacing: '0.05em',
-              color: '#2a2a2a',
-            }}
-          >
-            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-            {isPlaying ? 'PAUSE FLOW' : 'PLAY FLOW'}
-          </button>
-        </header>
+              borderRadius: 24,
+              padding: 22,
+              boxShadow: '0 38px 70px -54px rgba(0,0,0,0.35)',
+              backdropFilter: 'blur(10px)',
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 18,
+              }}>
+                <div>
+                  <div style={{
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 10,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: '#8a8270',
+                    marginBottom: 5,
+                  }}>
+                    Topic switcher
+                  </div>
+                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, fontWeight: 400 }}>
+                    Start with <em style={{ color: topic.accent }}>{topic.name}</em>
+                  </div>
+                </div>
+                <div style={{
+                  padding: '8px 10px',
+                  borderRadius: 14,
+                  background: topic.accentSoft,
+                  color: topic.accent,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: '0.12em',
+                }}>
+                  live now
+                </div>
+              </div>
 
-        {/* ===================== HERO ===================== */}
-        <section style={{ padding: '72px 32px 28px', textAlign: 'center' }}>
-          <div style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 11,
-            letterSpacing: '0.25em',
-            color: '#8a8270',
-            textTransform: 'uppercase',
-            marginBottom: 22,
-          }}>
-            <span style={{
-              display: 'inline-block',
-              width: 8, height: 8,
-              background: '#ea580c',
-              borderRadius: '50%',
-              marginRight: 10,
-              verticalAlign: 'middle',
-              animation: 'pulse-dot 1.8s ease-in-out infinite',
-            }} />
-            Interactive · Kubernetes v1.30 · Every component
+              <div className="topic-row" style={{ marginBottom: 18 }}>
+                {Object.values(TOPICS).map((entry) => (
+                  <button
+                    key={entry.id}
+                    onClick={() => setActiveTopic(entry.id)}
+                    style={{
+                      textAlign: 'left',
+                      border: `1px solid ${entry.id === activeTopic ? entry.accent : '#e8e0cc'}`,
+                      background: entry.id === activeTopic ? `linear-gradient(135deg, #ffffff 0%, ${entry.accentSoft} 100%)` : '#fff',
+                      borderRadius: 18,
+                      padding: 18,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      display: 'inline-flex',
+                      padding: '4px 8px',
+                      borderRadius: 999,
+                      background: entry.accentSoft,
+                      color: entry.accent,
+                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontSize: 10,
+                      letterSpacing: '0.08em',
+                      marginBottom: 10,
+                    }}>
+                      {entry.name}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
+                      {entry.short}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#6b6552', lineHeight: 1.55 }}>
+                      {entry.heroLead}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ paddingTop: 16, borderTop: '1px solid #efe6d5' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  marginBottom: 12,
+                }}>
+                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, lineHeight: 1, fontWeight: 400 }}>
+                    Future Topic Structure
+                  </div>
+                  <div style={{
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 10,
+                    letterSpacing: '0.12em',
+                    color: '#8a8270',
+                    textTransform: 'uppercase',
+                  }}>
+                    click a card
+                  </div>
+                </div>
+                <div className="future-grid">
+                  {FUTURE_TOPICS.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setSelectedFuture(item)}
+                      style={{
+                        textAlign: 'left',
+                        border: '1px solid #e8e0cc',
+                        background: '#fff',
+                        borderRadius: 16,
+                        padding: 16,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 3,
+                        background: item.color,
+                        transform: 'rotate(45deg)',
+                        marginBottom: 10,
+                      }} />
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>
+                        {item.title}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: '#6b6552', lineHeight: 1.5 }}>
+                        {item.blurb}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <h1 style={{
-            fontFamily: "'Instrument Serif', serif",
-            fontSize: 'clamp(44px, 7vw, 92px)',
-            lineHeight: 0.98,
-            letterSpacing: '-0.025em',
-            margin: '0 auto 18px',
-            maxWidth: 1100,
-            fontWeight: 400,
-          }}>
-            The anatomy of a <em style={{ fontStyle: 'italic', color: '#326ce5', fontWeight: 400 }}>cluster</em>, revealed.
-          </h1>
-          <p style={{
-            maxWidth: 660,
-            margin: '0 auto',
-            color: '#4a4636',
-            fontSize: 17,
-            lineHeight: 1.55,
-          }}>
-            Click any component to see what it is, what it does, and a real-world example of it in action. Every box in the diagram is a real part of Kubernetes — hover to trace connections, click to dive deep.
-          </p>
         </section>
 
-        {/* ===================== MAIN DIAGRAM ===================== */}
         <section style={{ maxWidth: 1400, margin: '40px auto', padding: '0 24px' }}>
           <div
             ref={containerRef}
             style={{
               position: 'relative',
-              background: '#fff',
+              background: 'rgba(255,255,255,0.92)',
               border: '1px solid #e8e0cc',
               borderRadius: 24,
               padding: '56px 42px 42px',
@@ -1280,25 +1537,23 @@ export default function App() {
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: 10, letterSpacing: '0.18em', color: '#8a8270', textTransform: 'uppercase',
             }}>
-              <span style={{ display: 'inline-block', width: 6, height: 6, background: '#16a34a', borderRadius: '50%', marginRight: 8, animation: 'pulse-dot 1.5s infinite' }} />
-              CLUSTER · prod-01 · main architecture
+              <span style={{ display: 'inline-block', width: 6, height: 6, background: topic.accent, borderRadius: '50%', marginRight: 8, animation: 'pulse-dot 1.5s infinite' }} />
+              {topic.diagramLabel}
             </div>
             <div style={{
               position: 'absolute', top: 20, right: 32,
               fontFamily: "'IBM Plex Mono', monospace",
               fontSize: 10, letterSpacing: '0.18em', color: '#8a8270', textTransform: 'uppercase',
             }}>
-              hover / click components →
+              {topic.panelHint}
             </div>
 
-            {/* SVG Connectors */}
             <svg
               width={svgDims.w}
               height={svgDims.h}
               style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}
             >
               <defs>
-                {/* Glow filter */}
                 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
                   <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                   <feMerge>
@@ -1306,52 +1561,43 @@ export default function App() {
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
-                {/* Gradient per path (from source color to target color) */}
-                {paths.map((p, i) => (
-                  <linearGradient key={`g-${i}`} id={`flow-grad-${i}`} gradientUnits="userSpaceOnUse"
-                    x1={p.x1} y1={p.y1} x2={p.x2} y2={p.y2}>
-                    <stop offset="0%" stopColor={p.colorFrom} stopOpacity="0.9" />
-                    <stop offset="100%" stopColor={p.colorTo} stopOpacity="0.9" />
+                {paths.map((path, i) => (
+                  <linearGradient key={`g-${i}`} id={`flow-grad-${i}`} gradientUnits="userSpaceOnUse" x1={path.x1} y1={path.y1} x2={path.x2} y2={path.y2}>
+                    <stop offset="0%" stopColor={path.colorFrom} stopOpacity="0.9" />
+                    <stop offset="100%" stopColor={path.colorTo} stopOpacity="0.9" />
                   </linearGradient>
                 ))}
-                {paths.map((p, i) => (
-                  <marker key={`m-${i}`} id={`arrow-${i}`} viewBox="0 0 10 10" refX="9" refY="5"
-                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 0 L 10 5 L 0 10 z" fill={p.colorTo} />
+                {paths.map((path, i) => (
+                  <marker key={`m-${i}`} id={`arrow-${i}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill={path.colorTo} />
                   </marker>
                 ))}
               </defs>
 
-              {/* Render paths */}
-              {paths.map((p, i) => {
-                const active = isPathActive(p);
+              {paths.map((path, i) => {
+                const active = isPathActive(path);
                 const dimmed = (selected || hovered) && !active;
                 return (
                   <g key={i}>
-                    {/* Soft glow underlay */}
                     <path
-                      d={p.d}
+                      d={path.d}
                       fill="none"
                       stroke={`url(#flow-grad-${i})`}
                       strokeWidth={active ? 10 : 6}
                       opacity={dimmed ? 0.03 : (active ? 0.35 : 0.18)}
                       filter="url(#glow)"
-                      style={{ transition: 'opacity 0.3s, stroke-width 0.3s' }}
                     />
-                    {/* Main gradient line */}
                     <path
-                      d={p.d}
+                      d={path.d}
                       fill="none"
                       stroke={`url(#flow-grad-${i})`}
                       strokeWidth={active ? 3 : 2}
                       strokeLinecap="round"
                       opacity={dimmed ? 0.18 : 1}
                       markerEnd={`url(#arrow-${i})`}
-                      style={{ transition: 'opacity 0.3s, stroke-width 0.3s' }}
                     />
-                    {/* Animated dashed overlay — gives the traveling feel */}
                     <path
-                      d={p.d}
+                      d={path.d}
                       fill="none"
                       stroke="#ffffff"
                       strokeWidth={active ? 2 : 1.2}
@@ -1360,26 +1606,14 @@ export default function App() {
                       opacity={dimmed ? 0.12 : 0.75}
                       className={`flow-path ${!isPlaying ? 'paused' : ''}`}
                     />
-                    {/* Traveling particle (moving dot along the path) */}
                     {!dimmed && (
-                      <circle r={active ? 4.5 : 3.5} fill={p.colorTo} filter="url(#glow)">
-                        <animateMotion
-                          dur={active ? '1.6s' : '2.4s'}
-                          repeatCount="indefinite"
-                          path={p.d}
-                          rotate="auto"
-                        />
+                      <circle r={active ? 4.5 : 3.5} fill={path.colorTo} filter="url(#glow)">
+                        <animateMotion dur={active ? '1.6s' : '2.4s'} repeatCount="indefinite" path={path.d} rotate="auto" />
                       </circle>
                     )}
-                    {/* Second particle offset — for a trail effect */}
                     {active && (
                       <circle r="2.5" fill="#ffffff" opacity="0.9">
-                        <animateMotion
-                          dur="1.6s"
-                          repeatCount="indefinite"
-                          path={p.d}
-                          begin="0.3s"
-                        />
+                        <animateMotion dur="1.6s" repeatCount="indefinite" path={path.d} begin="0.3s" />
                       </circle>
                     )}
                   </g>
@@ -1387,16 +1621,8 @@ export default function App() {
               })}
             </svg>
 
-            {/* Groups grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1.35fr 1fr',
-              gap: 32,
-              marginTop: 30,
-              position: 'relative',
-              zIndex: 2,
-            }}>
-              {GROUPS.map((group, gi) => (
+            <div className="diagram-grid">
+              {groups.map((group, gi) => (
                 <div
                   key={group.id}
                   style={{
@@ -1409,7 +1635,6 @@ export default function App() {
                     animation: `stagger-in 0.6s ease ${gi * 0.1}s both`,
                   }}
                 >
-                  {/* Group title badge */}
                   <div style={{
                     position: 'absolute',
                     top: -13, left: 18,
@@ -1422,13 +1647,9 @@ export default function App() {
                     boxShadow: `0 4px 12px -2px ${group.color}80`,
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: '#fff', animation: 'pulse-dot 1.8s infinite',
-                    }} />
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', animation: 'pulse-dot 1.8s infinite' }} />
                     {group.title}
                   </div>
-                  {/* Component count pill */}
                   <div style={{
                     position: 'absolute',
                     top: -10, right: 16,
@@ -1448,10 +1669,13 @@ export default function App() {
                     <ComponentCard
                       key={id}
                       id={id}
-                      data={COMPONENTS[id]}
+                      data={components[id]}
                       groupColor={group.color}
                       groupColorDark={group.colorDark}
-                      onClick={() => setSelected(id)}
+                      onClick={() => {
+                        setSelected(id);
+                        setSelectedFuture(null);
+                      }}
                       onHover={() => setHovered(id)}
                       onLeave={() => setHovered(null)}
                       active={selected === id}
@@ -1467,7 +1691,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* ===================== SECONDARY SECTIONS ===================== */}
         <section style={{ maxWidth: 1400, margin: '80px auto 40px', padding: '0 24px' }}>
           <div style={{ marginBottom: 32 }}>
             <h2 style={{
@@ -1478,14 +1701,14 @@ export default function App() {
               lineHeight: 1.05,
               margin: 0,
             }}>
-              Beyond the control plane — <em style={{ color: '#326ce5', fontStyle: 'italic' }}>the rest of the system</em>
+              {topic.sectionsTitle} <em style={{ color: topic.accent, fontStyle: 'italic' }}>in context</em>
             </h2>
             <p style={{ color: '#6b6552', fontSize: 17, marginTop: 12, maxWidth: 760 }}>
-              The boxes above are the physical parts of a cluster. But Kubernetes gets its real power from higher-level abstractions — workload APIs, networking, storage, security, autoscaling, and extensibility. Click any card to drill into a real example.
+              {topic.sectionsLead}
             </p>
           </div>
 
-          {SECONDARY_SECTIONS.map((sec, si) => {
+          {secondarySections.map((sec, si) => {
             const filtered = filteredSecondary(sec.components);
             if (search && filtered.length === 0) return null;
             return (
@@ -1499,37 +1722,25 @@ export default function App() {
                   borderBottom: `1px solid ${sec.color}33`,
                 }}>
                   <div style={{ width: 8, height: 8, borderRadius: 2, background: sec.color, transform: 'rotate(45deg)' }} />
-                  <h3 style={{
-                    fontFamily: "'Instrument Serif', serif",
-                    fontSize: 30,
-                    letterSpacing: '-0.01em',
-                    fontWeight: 400,
-                    margin: 0,
-                  }}>
+                  <h3 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, letterSpacing: '-0.01em', fontWeight: 400, margin: 0 }}>
                     {sec.title}
                   </h3>
-                  <span style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10,
-                    color: '#8a8270',
-                    letterSpacing: '0.12em',
-                  }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#8a8270', letterSpacing: '0.12em' }}>
                     {filtered.length} components
                   </span>
                 </div>
 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                  gap: 14,
-                }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
                   {filtered.map((id, ci) => (
                     <SecondaryCard
                       key={id}
                       id={id}
-                      data={COMPONENTS[id]}
+                      data={components[id]}
                       accent={sec.color}
-                      onClick={() => setSelected(id)}
+                      onClick={() => {
+                        setSelected(id);
+                        setSelectedFuture(null);
+                      }}
                       delay={si * 0.05 + ci * 0.03}
                     />
                   ))}
@@ -1537,9 +1748,21 @@ export default function App() {
               </div>
             );
           })}
+
+          {search && suggestions.length === 0 && (
+            <div style={{
+              border: '1px dashed #d6cfbe',
+              borderRadius: 18,
+              padding: 22,
+              background: 'rgba(255,255,255,0.64)',
+              color: '#6b6552',
+              fontSize: 15,
+            }}>
+              {topic.emptySearch}
+            </div>
+          )}
         </section>
 
-        {/* ===================== KUBECTL APPLY FLOW ===================== */}
         <section style={{ maxWidth: 1400, margin: '80px auto 40px', padding: '0 24px' }}>
           <h2 style={{
             fontFamily: "'Instrument Serif', serif",
@@ -1549,78 +1772,185 @@ export default function App() {
             lineHeight: 1.05,
             margin: '0 0 12px',
           }}>
-            The journey of a <em style={{ color: '#326ce5', fontStyle: 'italic' }}>kubectl apply</em>
+            {topic.workflowTitle}
           </h2>
           <p style={{ color: '#6b6552', fontSize: 17, marginBottom: 36, maxWidth: 680 }}>
-            From your laptop terminal to a running container, here's every step of a deployment request.
+            {topic.workflowLead}
           </p>
 
-          <div className="scrollbar-styled" style={{
-            display: 'flex',
-            gap: 14,
-            overflowX: 'auto',
-            paddingBottom: 24,
-            scrollSnapType: 'x mandatory',
-          }}>
-            {JOURNEY.map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 0.5, delay: i * 0.04 }}
-                style={{
-                  minWidth: 270,
-                  background: '#fff',
-                  border: '1px solid #e8e0cc',
-                  borderRadius: 14,
-                  padding: 22,
-                  scrollSnapAlign: 'start',
-                  position: 'relative',
-                }}
-              >
+          <div className="workflow-grid">
+            <div style={{
+              background: 'rgba(255,255,255,0.82)',
+              border: '1px solid #e8e0cc',
+              borderRadius: 24,
+              padding: 20,
+              boxShadow: '0 30px 60px -48px rgba(0,0,0,0.34)',
+            }}>
+              <div className="scrollbar-styled" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
+                {journey.map((step, i) => {
+                  const isActive = i === activeJourney;
+                  return (
+                    <motion.button
+                      key={step.title}
+                      initial={{ opacity: 0, y: 18 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.3 }}
+                      transition={{ duration: 0.45, delay: i * 0.03 }}
+                      onClick={() => setActiveJourney(i)}
+                      style={{
+                        minWidth: 250,
+                        textAlign: 'left',
+                        background: isActive ? `linear-gradient(160deg, ${topic.accent} 0%, #101828 160%)` : '#fff',
+                        color: isActive ? '#fff' : '#1a1a1a',
+                        border: `1px solid ${isActive ? topic.accent : '#e8e0cc'}`,
+                        borderRadius: 18,
+                        padding: 20,
+                        scrollSnapAlign: 'start',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: "'Instrument Serif', serif",
+                        fontSize: 44,
+                        fontStyle: 'italic',
+                        color: isActive ? 'rgba(255,255,255,0.28)' : '#d6cfbe',
+                        lineHeight: 1,
+                        fontWeight: 400,
+                      }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 8, marginBottom: 6 }}>
+                        {step.title}
+                      </div>
+                      <div style={{ fontSize: 12.5, color: isActive ? 'rgba(255,255,255,0.82)' : '#6b6552', lineHeight: 1.55 }}>
+                        {step.desc}
+                      </div>
+                      <div style={{
+                        marginTop: 14,
+                        padding: '4px 8px',
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: 10,
+                        background: isActive ? 'rgba(255,255,255,0.14)' : '#1a1a1a',
+                        color: '#fbf8f1',
+                        display: 'inline-block',
+                        borderRadius: 999,
+                        letterSpacing: '0.04em',
+                      }}>
+                        {step.actor}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{
+              position: 'relative',
+              borderRadius: 24,
+              overflow: 'hidden',
+              background: '#0f172a',
+              color: '#f8fafc',
+              border: `1px solid ${topic.accent}55`,
+              boxShadow: `0 30px 60px -44px ${topic.accent}`,
+            }}>
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(circle at top right, ${topic.accent}33 0%, transparent 38%)`,
+                pointerEvents: 'none',
+              }} />
+              <div style={{ padding: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
                 <div style={{
-                  fontFamily: "'Instrument Serif', serif",
-                  fontSize: 46,
-                  fontStyle: 'italic',
-                  color: '#d6cfbe',
-                  lineHeight: 1,
-                  fontWeight: 400,
-                }}>
-                  {String(i + 1).padStart(2, '0')}
-                </div>
-                <div style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  marginTop: 8,
-                  marginBottom: 6,
-                  color: '#1a1a1a',
-                }}>
-                  {step.title}
-                </div>
-                <div style={{ fontSize: 12.5, color: '#6b6552', lineHeight: 1.55 }}>
-                  {step.desc}
-                </div>
-                <div style={{
-                  marginTop: 14,
-                  padding: '3px 8px',
                   fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: 10,
-                  background: '#1a1a1a',
-                  color: '#fbf8f1',
-                  display: 'inline-block',
-                  borderRadius: 4,
-                  letterSpacing: '0.04em',
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: '#93c5fd',
+                  marginBottom: 8,
                 }}>
-                  {step.actor}
+                  {topic.workflowRealtimeLabel}
                 </div>
-              </motion.div>
-            ))}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, fontWeight: 400 }}>
+                    {liveStep.title}
+                  </div>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#cbd5e1' }}>
+                    {String(activeJourney + 1).padStart(2, '0')} / {journey.length}
+                  </div>
+                </div>
+                <div style={{ width: '100%', height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14 }}>
+                  <motion.div
+                    key={`${activeTopic}-${activeJourney}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${((activeJourney + 1) / journey.length) * 100}%` }}
+                    transition={{ duration: 0.45, ease: 'easeOut' }}
+                    style={{ height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${topic.accent}, #f8fafc)` }}
+                  />
+                </div>
+                <div style={{ fontSize: 14, lineHeight: 1.6, color: '#dbe5f2' }}>
+                  {liveStep.desc}
+                </div>
+              </div>
+
+              <div style={{ padding: 20, position: 'relative' }}>
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  background: 'rgba(2,6,23,0.88)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 11,
+                  color: '#86efac',
+                  marginBottom: 16,
+                  lineHeight: 1.7,
+                }}>
+                  $ {topic.workflowCommand}
+                </div>
+
+                <div style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: '0.16em',
+                  color: '#94a3b8',
+                  textTransform: 'uppercase',
+                  marginBottom: 10,
+                }}>
+                  Runtime feed
+                </div>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {relatedSteps.map((step, idx) => {
+                    const isCurrent = step.title === liveStep.title;
+                    return (
+                      <div
+                        key={`${step.title}-${idx}`}
+                        style={{
+                          borderRadius: 14,
+                          padding: '12px 14px',
+                          background: isCurrent ? 'rgba(14,165,233,0.18)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${isCurrent ? `${topic.accent}88` : 'rgba(255,255,255,0.06)'}`,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 5 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>
+                            {step.title}
+                          </div>
+                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: isCurrent ? '#7dd3fc' : '#94a3b8' }}>
+                            {isCurrent ? 'active' : 'queued'}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 12.5, lineHeight: 1.55, color: '#cbd5e1' }}>
+                          {step.desc}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ===================== INTRO TEXT ===================== */}
-        <section style={{ maxWidth: 780, margin: '80px auto', padding: '0 24px' }}>
+        <section style={{ maxWidth: 1020, margin: '80px auto', padding: '0 24px' }}>
           <h2 style={{
             fontFamily: "'Instrument Serif', serif",
             fontSize: 42,
@@ -1628,20 +1958,77 @@ export default function App() {
             fontWeight: 400,
             margin: '0 0 20px',
           }}>
-            The mental model
+            {topic.compareTitle}
           </h2>
-          <p style={{ fontSize: 17, color: '#3a3628', lineHeight: 1.7, marginBottom: 16 }}>
-            Kubernetes is two ideas, repeated everywhere. First: <em style={{ fontStyle: 'italic', color: '#326ce5' }}>a single source of truth</em> — etcd — that you can only reach through the API Server. Second: <em style={{ fontStyle: 'italic', color: '#326ce5' }}>independent control loops</em> that each watch a slice of that truth and nudge reality toward the desired state.
-          </p>
-          <p style={{ fontSize: 17, color: '#3a3628', lineHeight: 1.7, marginBottom: 16 }}>
-            A Deployment controller keeps ReplicaSets right. A ReplicaSet controller keeps pod counts right. A scheduler is just a controller that assigns pods to nodes. kubelet is a node-local controller that makes pods actually exist. Everything is reconciliation.
-          </p>
-          <p style={{ fontSize: 17, color: '#3a3628', lineHeight: 1.7 }}>
-            Once you see the pattern, the rest is specialization — networking loops, storage loops, autoscaling loops, your own operators. That is Kubernetes.
-          </p>
+          {topic.compareParagraphs.map((paragraph) => (
+            <p key={paragraph} style={{ fontSize: 17, color: '#3a3628', lineHeight: 1.7, marginBottom: 16 }}>
+              {paragraph}
+            </p>
+          ))}
         </section>
 
-        {/* ===================== FOOTER ===================== */}
+        <section style={{ maxWidth: 1400, margin: '40px auto 80px', padding: '0 24px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.78)', border: '1px solid #e8e0cc', borderRadius: 24, padding: 22 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: '#8a8270',
+                  marginBottom: 5,
+                }}>
+                  Roadmap
+                </div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, fontWeight: 400 }}>
+                  Future Topic Structure
+                </div>
+              </div>
+              <div style={{ fontSize: 14, color: '#6b6552', maxWidth: 500 }}>
+                Each upcoming topic will open with the same interactive architecture, examples, workflow trace, and troubleshooting surface.
+              </div>
+            </div>
+            <div className="future-grid">
+              {FUTURE_TOPICS.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedFuture(item)}
+                  style={{
+                    textAlign: 'left',
+                    background: '#fff',
+                    border: '1px solid #e8e0cc',
+                    borderRadius: 18,
+                    padding: 18,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: 10,
+                    color: item.color,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    marginBottom: 10,
+                  }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, transform: 'rotate(45deg)' }} />
+                    Coming soon
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#1a1a1a' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: '#6b6552' }}>
+                    {item.blurb}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <footer style={{
           padding: '48px 32px 40px',
           textAlign: 'center',
@@ -1651,67 +2038,23 @@ export default function App() {
           alignItems: 'center',
           gap: 18,
         }}>
-          <div style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 10,
-            color: '#8a8270',
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-          }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#8a8270', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
             Built by
           </div>
-          <div style={{
-            fontFamily: "'Instrument Serif', serif",
-            fontSize: 28,
-            fontWeight: 400,
-            letterSpacing: '-0.01em',
-            color: '#1a1a1a',
-          }}>
-            Anas <em style={{ fontStyle: 'italic', color: '#326ce5' }}>Kadambalath</em>
+          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 28, fontWeight: 400, letterSpacing: '-0.01em', color: '#1a1a1a' }}>
+            Anas <em style={{ fontStyle: 'italic', color: topic.accent }}>Kadambalath</em>
           </div>
 
-          {/* Social links row */}
-          <div style={{
-            display: 'flex',
-            gap: 14,
-            marginTop: 4,
-          }}>
-            <a
-              href="https://github.com/anaskmh"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub"
-              title="GitHub · anaskmh"
-              style={socialLinkStyle('#1a1a1a')}
-              onMouseEnter={(e) => hoverIn(e, '#1a1a1a')}
-              onMouseLeave={(e) => hoverOut(e, '#1a1a1a')}
-            >
+          <div style={{ display: 'flex', gap: 14, marginTop: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <a href="https://github.com/anaskmh" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub · anaskmh" style={socialLinkStyle('#1a1a1a')} onMouseEnter={(e) => hoverIn(e, '#1a1a1a')} onMouseLeave={(e) => hoverOut(e, '#1a1a1a')}>
               <Github size={18} />
               <span style={socialLabelStyle}>GitHub</span>
             </a>
-            <a
-              href="https://www.linkedin.com/in/anaskadambalath/"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="LinkedIn"
-              title="LinkedIn · Anas Kadambalath"
-              style={socialLinkStyle('#0a66c2')}
-              onMouseEnter={(e) => hoverIn(e, '#0a66c2')}
-              onMouseLeave={(e) => hoverOut(e, '#0a66c2')}
-            >
+            <a href="https://www.linkedin.com/in/anaskadambalath/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" title="LinkedIn · Anas Kadambalath" style={socialLinkStyle('#0a66c2')} onMouseEnter={(e) => hoverIn(e, '#0a66c2')} onMouseLeave={(e) => hoverOut(e, '#0a66c2')}>
               <Linkedin size={18} />
               <span style={socialLabelStyle}>LinkedIn</span>
             </a>
-            <a
-              href="https://medium.com/@anaskmh"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Medium"
-              title="Medium · @anaskmh"
-              style={socialLinkStyle('#000000')}
-              onMouseEnter={(e) => hoverIn(e, '#000000')}
-              onMouseLeave={(e) => hoverOut(e, '#000000')}
-            >
+            <a href="https://medium.com/@anaskmh" target="_blank" rel="noopener noreferrer" aria-label="Medium" title="Medium · @anaskmh" style={socialLinkStyle('#000000')} onMouseEnter={(e) => hoverIn(e, '#000000')} onMouseLeave={(e) => hoverOut(e, '#000000')}>
               <MediumIcon size={18} />
               <span style={socialLabelStyle}>Medium</span>
             </a>
@@ -1719,19 +2062,12 @@ export default function App() {
 
           <VisitorCounter />
 
-          <div style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 10,
-            color: '#b0a892',
-            letterSpacing: '0.16em',
-            marginTop: 6,
-          }}>
-            KUBERNETES · CNCF PROJECT · v1.30
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#b0a892', letterSpacing: '0.16em', marginTop: 6 }}>
+            {topic.footerTicker}
           </div>
         </footer>
       </div>
 
-      {/* ===================== DETAIL PANEL ===================== */}
       <AnimatePresence>
         {selected && (
           <motion.div
@@ -1744,8 +2080,6 @@ export default function App() {
               top: 80,
               right: 20,
               bottom: 20,
-              width: 480,
-              maxWidth: 'calc(100vw - 40px)',
               background: '#fbf8f1',
               border: '1.5px solid #1a1a1a',
               borderRadius: 18,
@@ -1755,10 +2089,11 @@ export default function App() {
               flexDirection: 'column',
               overflow: 'hidden',
             }}
+            className="detail-panel"
           >
             <DetailPanel
               id={selected}
-              data={COMPONENTS[selected]}
+              data={components[selected]}
               onClose={() => setSelected(null)}
               onPrev={() => {
                 if (currentIdx > 0) setSelected(orderedIds[currentIdx - 1]);
@@ -1772,39 +2107,63 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedFuture && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.22 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.42)',
+              zIndex: 70,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 20,
+            }}
+            onClick={() => setSelectedFuture(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.97 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.97 }}
+              transition={{ duration: 0.18 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: 'min(560px, 100%)',
+                background: '#fbf8f1',
+                border: '1.5px solid #1a1a1a',
+                borderRadius: 22,
+                boxShadow: '0 40px 80px -44px rgba(0,0,0,0.45)',
+                overflow: 'hidden',
+              }}
+            >
+              <ComingSoonPanel item={selectedFuture} copy={topic.comingSoonCopy} onClose={() => setSelectedFuture(null)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // ============================================================
-// HELM LOGO
+// ATLAS MARK
 // ============================================================
-function Helm() {
-  // Official Kubernetes mark: white-outlined heptagon with a ship's wheel
+function AtlasMark({ accent = '#326ce5' }) {
   return (
-    <svg width="34" height="34" viewBox="0 0 100 100" fill="none" aria-label="Kubernetes logo">
-      {/* Heptagon (7-sided) — approximates the official mark */}
-      <polygon
-        points="50,4 93,25 93,75 50,96 7,75 7,25"
-        fill="#326ce5"
-        stroke="#ffffff"
-        strokeWidth="5"
-        strokeLinejoin="round"
-      />
-      {/* Ship's wheel */}
-      <g transform="translate(50 50)" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" fill="none">
-        {/* Outer rim */}
-        <circle r="22" />
-        {/* Inner hub */}
-        <circle r="5" fill="#ffffff" stroke="none" />
-        {/* 8 spokes with handles (rotated every 45°) */}
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
-          <g key={deg} transform={`rotate(${deg})`}>
-            <line x1="0" y1="-5" x2="0" y2="-22" />
-            <line x1="0" y1="-22" x2="0" y2="-30" />
-            <circle cx="0" cy="-31.5" r="2" fill="#ffffff" stroke="none" />
-          </g>
-        ))}
+    <svg width="36" height="36" viewBox="0 0 100 100" fill="none" aria-label="DevOps Atlas logo">
+      <rect x="10" y="10" width="80" height="80" rx="24" fill={accent} />
+      <path d="M26 62L50 26L74 62" stroke="#fff" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M34 62H66" stroke="#fff" strokeWidth="7" strokeLinecap="round" />
+      <circle cx="50" cy="50" r="8" fill="#fff" />
+      <g opacity="0.18">
+        <circle cx="50" cy="50" r="28" stroke="#fff" strokeWidth="4" />
+        <circle cx="50" cy="50" r="38" stroke="#fff" strokeWidth="3" />
       </g>
     </svg>
   );
@@ -1929,6 +2288,95 @@ function SecondaryCard({ id, data, accent, onClick, delay }) {
         {data.short}
       </div>
     </motion.div>
+  );
+}
+
+// ============================================================
+// COMING SOON PANEL
+// ============================================================
+function ComingSoonPanel({ item, copy, onClose }) {
+  return (
+    <>
+      <div style={{
+        padding: '20px 22px 16px',
+        borderBottom: '1px solid #e8e0cc',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+      }}>
+        <div>
+          <div style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: 9,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: item.color,
+            marginBottom: 4,
+          }}>
+            Stay tuned
+          </div>
+          <div style={{
+            fontFamily: "'Instrument Serif', serif",
+            fontSize: 34,
+            lineHeight: 1,
+            fontWeight: 400,
+          }}>
+            {item.title}
+          </div>
+        </div>
+        <button onClick={onClose} style={{
+          background: 'transparent',
+          border: '1px solid #d6cfbe',
+          width: 30,
+          height: 30,
+          borderRadius: 7,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#6b6552',
+        }}>
+          <X size={16} />
+        </button>
+      </div>
+
+      <div style={{ padding: 22 }}>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 10px',
+          borderRadius: 999,
+          background: `${item.color}14`,
+          color: item.color,
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 10,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          marginBottom: 16,
+        }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, transform: 'rotate(45deg)' }} />
+          Coming soon
+        </div>
+        <p style={{ fontSize: 15, color: '#3a3628', lineHeight: 1.65, margin: '0 0 16px' }}>
+          {copy}
+        </p>
+        <div style={{
+          border: '1px dashed #d6cfbe',
+          borderRadius: 16,
+          padding: 16,
+          background: '#fff',
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
+            Planned scope
+          </div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#6b6552' }}>
+            {item.blurb}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -2118,7 +2566,71 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
           </>
         )}
 
-        {/* OFFICIAL DOCS LINK */}
+        {data.troubleshooting && (
+          <>
+            <div style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              color: '#8a8270',
+              textTransform: 'uppercase',
+              margin: '24px 0 10px',
+            }}>
+              Real-time troubleshooting
+            </div>
+            <div style={{
+              background: '#fff',
+              border: `1px solid ${data.color}30`,
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Symptom
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#1f2937', marginBottom: 14 }}>
+                {data.troubleshooting.symptom}
+              </div>
+
+              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Checks
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 14px' }}>
+                {data.troubleshooting.checks.map((check) => (
+                  <li key={check} style={{ position: 'relative', padding: '0 0 8px 18px', fontSize: 13, color: '#3a3628', lineHeight: 1.5 }}>
+                    <span style={{ position: 'absolute', left: 0, top: 0, color: data.color, fontWeight: 700 }}>•</span>
+                    {check}
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Fix
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#1f2937', marginBottom: 14 }}>
+                {data.troubleshooting.fix}
+              </div>
+
+              <pre style={{
+                background: '#0a0a0a',
+                border: '1px solid #2a2a2a',
+                borderRadius: 6,
+                padding: '10px 12px',
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 11,
+                color: '#93c5fd',
+                overflow: 'auto',
+                lineHeight: 1.55,
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}>
+                {data.troubleshooting.code}
+              </pre>
+            </div>
+          </>
+        )}
+
         {data.docUrl && (
           <a
             href={data.docUrl}
@@ -2160,7 +2672,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
               }}>
                 Read the official docs
               </span>
-              <span>{data.docLabel || 'Learn more on kubernetes.io'}</span>
+              <span>{data.docLabel || 'Learn more in the official docs'}</span>
             </div>
             <ExternalLink size={16} style={{ flexShrink: 0 }} />
           </a>
@@ -2217,7 +2729,8 @@ function initialsOf(name) {
 // ============================================================
 // VISITOR COUNTER
 // ============================================================
-const VISITOR_BASE = 1289;
+const VISITOR_BASE = 4341;
+const VISITOR_COUNTER_KEY = 'devops-atlas/visitors';
 
 function VisitorCounter() {
   const [count, setCount] = useState(null);
@@ -2228,8 +2741,8 @@ function VisitorCounter() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    // hit countapi — increments on every real page load
-    fetch('https://api.countapi.xyz/hit/anatomyof-k8s/visitors')
+    // hit countapi — increments on every real page load for the DevOps Atlas counter
+    fetch(`https://api.countapi.xyz/hit/${VISITOR_COUNTER_KEY}`)
       .then((r) => r.json())
       .then((data) => {
         const real = data.value || 0;
@@ -2370,7 +2883,7 @@ function MediumIcon({ size = 18 }) {
 // ============================================================
 // JOURNEY STEPS
 // ============================================================
-const JOURNEY = [
+const KUBERNETES_JOURNEY = [
   { title: 'You run kubectl apply', desc: 'A developer runs kubectl apply -f checkout-v2.yaml from their laptop.', actor: 'kubectl' },
   { title: 'HTTPS POST to API Server', desc: 'kubectl reads kubeconfig, finds cluster URL, sends auth\'d HTTPS POST on :6443.', actor: 'API Server' },
   { title: 'Auth → RBAC → admission', desc: 'Request passes authentication, RBAC checks, and all admission webhooks.', actor: 'API Server' },
@@ -2384,3 +2897,639 @@ const JOURNEY = [
   { title: 'kube-proxy wires Service', desc: 'EndpointSlice updated; iptables/IPVS rules route Service IP to new pods.', actor: 'kube-proxy' },
   { title: 'Status reported back', desc: 'kubelet reports Running to API Server. kubectl get pods shows Running.', actor: 'kubelet' },
 ];
+
+const DOCKER_COMPONENTS = {
+  'docker-user': {
+    group: 'workspace',
+    name: 'Developer Workspace',
+    short: 'Laptop, shell, source code, and local feedback loop',
+    color: '#0f172a',
+    tag: 'WORKSPACE',
+    intro: 'Docker starts on the developer machine. Source code, a terminal, a Dockerfile, and a fast local loop are the raw materials for everything that follows.',
+    example: {
+      scenario: 'A backend developer is fixing a Node.js API bug before pushing to staging.',
+      action: 'They edit code locally, rebuild the image, run it in a container, and validate the fix before pushing anything upstream.',
+      code: '$ npm test\n$ docker build -t atlas-api:dev .\n$ docker run --rm -p 8080:8080 atlas-api:dev',
+    },
+    responsibilities: [
+      'Own the source tree, Dockerfile, and local configuration',
+      'Trigger image builds and container runs',
+      'Validate behavior before publishing to a registry',
+    ],
+    deepDive: 'The Docker story starts before the daemon. A poor local workflow makes every later environment worse. Fast feedback depends on deterministic builds, clear tags, a predictable Dockerfile, and small images that can rebuild quickly.',
+    docUrl: 'https://docs.docker.com/get-started/',
+    docLabel: 'Docker getting started',
+    troubleshooting: {
+      symptom: 'The app works on the host machine but behaves differently in the container.',
+      checks: [
+        'Confirm the container is using the same environment variables and ports you expect.',
+        'Inspect the working directory, copied files, and installed dependencies inside the image.',
+      ],
+      fix: 'Run the same command inside the container, not on the host, and compare filesystem paths, users, and environment values.',
+      code: '$ docker run --rm -it atlas-api:dev sh\n# env | sort\n# ls -la /app',
+    },
+  },
+  'docker-cli': {
+    group: 'workspace',
+    name: 'Docker CLI',
+    short: 'User-facing command surface for Docker',
+    color: '#1d4ed8',
+    tag: 'CLI',
+    intro: 'The Docker CLI turns commands like build, run, logs, and push into API calls to the Docker Engine.',
+    example: {
+      scenario: 'You need to rebuild a Python worker image and stream the output live.',
+      action: 'The CLI sends the build context to the engine, streams BuildKit progress, and prints the resulting image digest once the build completes.',
+      code: '$ docker build -t payments-worker:1.4 .\n[+] Building 19.6s (14/14) FINISHED\n=> exporting to image\n=> => naming to docker.io/library/payments-worker:1.4',
+    },
+    responsibilities: [
+      'Accept build, run, inspect, push, and logs commands',
+      'Forward requests to the engine API',
+      'Stream progress, status, logs, and errors back to the terminal',
+    ],
+    deepDive: 'The Docker CLI is not the runtime. It is a client. Most commands simply format a request, send it to the Docker API socket, then render the response in a human-friendly form.',
+    docUrl: 'https://docs.docker.com/reference/cli/docker/',
+    docLabel: 'Docker CLI reference',
+    troubleshooting: {
+      symptom: 'Docker commands hang or return "Cannot connect to the Docker daemon".',
+      checks: [
+        'Confirm Docker Desktop or the Linux daemon is actually running.',
+        'Check that your shell can access the daemon socket or current Docker context.',
+      ],
+      fix: 'Start the daemon, then verify the active context and socket path before retrying.',
+      code: '$ docker context ls\n$ docker version\n$ docker info',
+    },
+  },
+  dockerfile: {
+    group: 'workspace',
+    name: 'Dockerfile',
+    short: 'Recipe for building an image',
+    color: '#0ea5e9',
+    tag: 'BUILD',
+    intro: 'A Dockerfile describes how to turn source code and dependencies into a portable image layer by layer.',
+    example: {
+      scenario: 'A Next.js app needs Node modules, a production build, and a slim runtime image.',
+      action: 'A multi-stage Dockerfile builds in one stage, copies only the compiled output into a smaller runtime stage, and avoids shipping dev dependencies.',
+      code: 'FROM node:20 AS build\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci\nCOPY . .\nRUN npm run build\n\nFROM node:20-alpine\nCOPY --from=build /app/.next /app/.next',
+    },
+    responsibilities: [
+      'Define base images, copy steps, and runtime command',
+      'Control cache boundaries through layer order',
+      'Encode reproducible build steps for CI and local development',
+    ],
+    deepDive: 'The Dockerfile is where image quality is won or lost. Layer order determines cache efficiency, base image choice affects security and size, and multi-stage builds separate compilation concerns from runtime concerns.',
+    docUrl: 'https://docs.docker.com/reference/dockerfile/',
+    docLabel: 'Dockerfile reference',
+    troubleshooting: {
+      symptom: 'Builds are slow and cache misses happen on every code change.',
+      checks: [
+        'Check whether `COPY . .` happens too early and invalidates later layers.',
+        'Verify dependency files are copied separately before application code.',
+      ],
+      fix: 'Move stable dependency steps above frequently changing source-copy steps and use multi-stage builds.',
+      code: '# good cache order\nCOPY package*.json ./\nRUN npm ci\nCOPY . .',
+    },
+  },
+  buildkit: {
+    group: 'workspace',
+    name: 'BuildKit',
+    short: 'Modern Docker build engine',
+    color: '#0284c7',
+    tag: 'BUILD',
+    intro: 'BuildKit parallelizes work, improves caching, supports secrets and mounts, and makes Docker builds much faster and smarter.',
+    example: {
+      scenario: 'A Go service build needs private modules and aggressive cache reuse in CI.',
+      action: 'BuildKit mounts an SSH key during the build, reuses cached layers, and only reruns the minimal set of steps affected by code changes.',
+      code: '$ DOCKER_BUILDKIT=1 docker build --ssh default -t atlas-go:latest .',
+    },
+    responsibilities: [
+      'Optimize build graph execution',
+      'Support cache mounts, secret mounts, and parallel build steps',
+      'Emit rich progress output and portable cache metadata',
+    ],
+    deepDive: 'Classic `docker build` processed steps in a simpler linear model. BuildKit treats the build as a graph and can skip or parallelize work more intelligently. That matters in real projects where dependencies, assets, and compiled artifacts all have different invalidation patterns.',
+    docUrl: 'https://docs.docker.com/build/buildkit/',
+    docLabel: 'BuildKit guide',
+    troubleshooting: {
+      symptom: 'A build needs a secret or SSH key and fails inside CI.',
+      checks: [
+        'Verify BuildKit is enabled and the secret or SSH mount is actually declared.',
+        'Confirm the command uses the mounted path instead of assuming the file exists in the image.',
+      ],
+      fix: 'Pass secrets through BuildKit mounts instead of copying them into the image.',
+      code: 'RUN --mount=type=secret,id=npmrc cat /run/secrets/npmrc',
+    },
+  },
+  'docker-engine': {
+    group: 'engine',
+    name: 'Docker Engine',
+    short: 'Daemon and API that orchestrate builds and containers',
+    color: '#2563eb',
+    tag: 'ENGINE',
+    intro: 'Docker Engine is the long-running service that receives Docker API requests, manages images, and coordinates container lifecycle operations.',
+    example: {
+      scenario: 'A team runs `docker run -d --name web -p 80:8080 web:2.1`.',
+      action: 'The engine checks for the image locally, pulls it if needed, configures ports, storage, and networking, then asks lower-level runtimes to start the container.',
+      code: '$ docker run -d --name web -p 80:8080 web:2.1\nb1b22fe8d4d6...',
+    },
+    responsibilities: [
+      'Expose the Docker API to clients',
+      'Manage images, containers, volumes, and networks',
+      'Delegate runtime work to containerd and runc',
+    ],
+    deepDive: 'Docker Engine is the control layer. It does not directly implement every isolation primitive itself. Instead it coordinates image management, networking, volumes, and runtime requests over a stable API.',
+    docUrl: 'https://docs.docker.com/engine/',
+    docLabel: 'Docker Engine docs',
+    troubleshooting: {
+      symptom: 'Containers fail to start even though the image exists locally.',
+      checks: [
+        'Inspect the container state and recent engine events.',
+        'Review port conflicts, missing volumes, and invalid entrypoint or command values.',
+      ],
+      fix: 'Use `docker inspect` and `docker events` to separate image problems from runtime configuration problems.',
+      code: '$ docker inspect web --format \'{{.State.Status}} {{.State.Error}}\'\n$ docker events --since 10m',
+    },
+  },
+  image: {
+    group: 'engine',
+    name: 'Image',
+    short: 'Immutable packaged filesystem and metadata',
+    color: '#f97316',
+    tag: 'ARTIFACT',
+    intro: 'A Docker image is the built artifact: layered filesystem, metadata, default command, environment, and history.',
+    example: {
+      scenario: 'CI builds `atlas-api:2026-05-06.3` after a merge to main.',
+      action: 'The image gets a unique tag and digest, is scanned, and becomes the exact artifact promoted from dev to staging to production.',
+      code: '$ docker images atlas-api\nREPOSITORY   TAG            IMAGE ID       SIZE\natlas-api    2026-05-06.3   4d8d8b8d8c1a   188MB',
+    },
+    responsibilities: [
+      'Package code, dependencies, and startup metadata into a portable artifact',
+      'Provide immutable content addressed by digest',
+      'Support tagging conventions for release promotion',
+    ],
+    deepDive: 'An image should be treated as a release artifact, not a mutable environment. The same image digest should move across environments with different runtime configuration, which is how teams avoid "works in staging, fails in prod" drift.',
+    docUrl: 'https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-an-image/',
+    docLabel: 'What is an image?',
+    troubleshooting: {
+      symptom: 'The wrong application version is running after a deploy.',
+      checks: [
+        'Verify the image digest, not just the mutable tag.',
+        'Check whether an old local cache or stale registry tag was reused.',
+      ],
+      fix: 'Promote immutable digests through environments and avoid relying on `latest`.',
+      code: '$ docker image inspect atlas-api:prod --format \'{{index .RepoDigests 0}}\'',
+    },
+  },
+  registry: {
+    group: 'engine',
+    name: 'Registry',
+    short: 'Remote store for versioned images',
+    color: '#ea580c',
+    tag: 'DISTRIBUTION',
+    intro: 'Registries like Docker Hub, GHCR, and ECR store pushed images so other machines can pull the exact artifact.',
+    example: {
+      scenario: 'A CI pipeline publishes a release image after tests pass.',
+      action: 'The pipeline authenticates to the registry, pushes the image layers that are not already present, and publishes a tag and digest for downstream deployment steps.',
+      code: '$ docker push ghcr.io/acme/atlas-api:1.4.2\nlayer already exists\nlatest: digest: sha256:3f2...',
+    },
+    responsibilities: [
+      'Store image manifests and layers',
+      'Enable pull and push workflows across environments',
+      'Act as the distribution point for CI/CD pipelines',
+    ],
+    deepDive: 'Registries are the bridge between build-time and runtime. They decouple where an image is created from where it is executed, and that makes release workflows reliable across teams and environments.',
+    docUrl: 'https://docs.docker.com/docker-hub/repos/',
+    docLabel: 'Registry and repository docs',
+    troubleshooting: {
+      symptom: 'A push fails with authentication or permission errors.',
+      checks: [
+        'Confirm you are logged into the correct registry hostname.',
+        'Verify repository permissions and whether the tag target exists.',
+      ],
+      fix: 'Re-authenticate against the exact registry and confirm the repository path matches the image tag.',
+      code: '$ docker login ghcr.io\n$ docker tag atlas-api:1.4 ghcr.io/acme/atlas-api:1.4\n$ docker push ghcr.io/acme/atlas-api:1.4',
+    },
+  },
+  containerd: {
+    group: 'runtime',
+    name: 'containerd',
+    short: 'High-level container runtime manager',
+    color: '#0891b2',
+    tag: 'RUNTIME',
+    intro: 'containerd handles image pulls, snapshots, and container lifecycle requests on behalf of Docker Engine.',
+    example: {
+      scenario: 'The engine needs to start a container from a freshly pulled image.',
+      action: 'containerd unpacks layers into a snapshot, creates the runtime task, and keeps track of the container state for the engine.',
+      code: '$ ctr -n moby containers ls\nCONTAINER    IMAGE\nweb          docker.io/library/web:2.1',
+    },
+    responsibilities: [
+      'Manage image content, snapshots, and runtime tasks',
+      'Expose a runtime-focused API below Docker Engine',
+      'Prepare filesystem state for the OCI runtime',
+    ],
+    deepDive: 'Docker no longer runs containers through a Docker-specific low-level runtime. containerd is the durable middle layer that knows about content, snapshots, and task management.',
+    docUrl: 'https://docs.docker.com/engine/daemon/containerd/',
+    docLabel: 'containerd with Docker Engine',
+    troubleshooting: {
+      symptom: 'An image pulls successfully but the container still does not start.',
+      checks: [
+        'Inspect whether the snapshot unpacked correctly and the runtime task was created.',
+        'Look for permission, mount, or filesystem errors in the runtime path.',
+      ],
+      fix: 'Differentiate pull success from task start success; they are separate phases.',
+      code: '$ docker events --since 5m\n$ docker inspect web --format \'{{json .State}}\'',
+    },
+  },
+  runc: {
+    group: 'runtime',
+    name: 'runc',
+    short: 'OCI runtime that creates the actual container process',
+    color: '#0d9488',
+    tag: 'OCI',
+    intro: 'runc is the low-level runtime that applies Linux namespaces, cgroups, mounts, and security settings, then launches the container process.',
+    example: {
+      scenario: 'A Java service container is started with CPU and memory limits.',
+      action: 'runc creates the isolated process environment, joins the namespace and cgroup configuration, and executes the Java process as PID 1 inside the container.',
+      code: 'OCI runtime create -> start -> process launched in isolated namespaces',
+    },
+    responsibilities: [
+      'Apply OCI runtime specification settings',
+      'Create namespaces, cgroups, and mounts',
+      'Launch the container entrypoint process',
+    ],
+    deepDive: 'runc is very close to the Linux kernel boundary. It is intentionally narrow. Docker and containerd manage higher-level workflows; runc focuses on correct process isolation and startup.',
+    docUrl: 'https://docs.docker.com/engine/security/',
+    docLabel: 'Container runtime security',
+    troubleshooting: {
+      symptom: 'The runtime errors with permission denied, cgroup, or mount failures.',
+      checks: [
+        'Review whether the container requests privileged behavior, host mounts, or unsupported capabilities.',
+        'Check the engine and kernel logs for the exact OCI runtime error.',
+      ],
+      fix: 'Treat OCI runtime failures as host/runtime configuration issues first, not application issues.',
+      code: '$ docker inspect web --format \'{{json .HostConfig}}\'',
+    },
+  },
+  container: {
+    group: 'runtime',
+    name: 'Container',
+    short: 'A running instance of an image',
+    color: '#16a34a',
+    tag: 'RUNTIME',
+    intro: 'A container is the live process created from an image with specific runtime configuration such as ports, environment variables, and mounts.',
+    example: {
+      scenario: 'You launch a Redis container for local development.',
+      action: 'Docker creates the container from the `redis:7` image, maps a host port, mounts a volume for persistence, and starts the Redis server process.',
+      code: '$ docker run -d --name redis-dev -p 6379:6379 -v redis-data:/data redis:7',
+    },
+    responsibilities: [
+      'Run the application process defined by the image and runtime config',
+      'Expose logs, state, exit code, and restart behavior',
+      'Carry environment variables, mounts, and port mappings',
+    ],
+    deepDive: 'A container is not the image. It is a running instance plus mutable runtime state: process, network attachment, mounts, and exit status. That distinction matters when debugging because image problems and container problems are different classes of failure.',
+    docUrl: 'https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/',
+    docLabel: 'What is a container?',
+    troubleshooting: {
+      symptom: 'The container exits immediately after `docker run`.',
+      checks: [
+        'Check the container logs and exit code.',
+        'Confirm the configured command starts a foreground process instead of daemonizing then exiting.',
+      ],
+      fix: 'Make sure the main process stays in the foreground and validate command, env vars, and mounted config files.',
+      code: '$ docker ps -a\n$ docker logs redis-dev\n$ docker inspect redis-dev --format \'{{.State.ExitCode}}\'',
+    },
+  },
+  'layer-cache': {
+    group: 'images',
+    name: 'Layer Cache',
+    short: 'Reusable build layers that keep rebuilds fast',
+    color: '#f59e0b',
+    tag: 'IMAGE',
+    intro: 'Docker reuses unchanged layers between builds so you do not re-download or recompile everything on every change.',
+    example: {
+      scenario: 'You change only one React component file.',
+      action: 'Docker reuses the base image, dependency install, and earlier layers, then reruns only the copy and build steps invalidated by the source change.',
+      code: '=> CACHED [2/6] COPY package*.json ./\n=> CACHED [3/6] RUN npm ci\n=> [4/6] COPY . .',
+    },
+    responsibilities: [
+      'Reuse build outputs for unchanged instructions',
+      'Reduce local and CI build time',
+      'Encourage stable layer ordering in Dockerfiles',
+    ],
+    deepDive: 'Layer caching is where careful Dockerfile design pays off. Stable dependency layers should sit above volatile source layers, or every small edit turns into a full rebuild.',
+    docUrl: 'https://docs.docker.com/build/cache/',
+    docLabel: 'Build cache docs',
+    troubleshooting: {
+      symptom: 'Every CI build is cold and takes too long.',
+      checks: [
+        'Confirm whether your CI runner restores the previous cache or inline cache metadata.',
+        'Check whether tags and cache-from settings point to a valid previous image.',
+      ],
+      fix: 'Export and import cache metadata explicitly in CI when runners are ephemeral.',
+      code: '$ docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t atlas-api:cache .',
+    },
+  },
+  volume: {
+    group: 'images',
+    name: 'Volume',
+    short: 'Persistent storage outside the container filesystem',
+    color: '#d97706',
+    tag: 'STORAGE',
+    intro: 'Volumes keep data alive when containers are recreated. They are the normal way to preserve databases, uploads, caches, and shared working data.',
+    example: {
+      scenario: 'A Postgres container is recreated after a config change.',
+      action: 'The container is new, but the named volume still holds the database files, so data survives the restart.',
+      code: '$ docker run -d --name pg -v pg-data:/var/lib/postgresql/data postgres:16',
+    },
+    responsibilities: [
+      'Persist state independently from container lifecycle',
+      'Support named volumes and bind mounts',
+      'Make local development and stateful services workable',
+    ],
+    deepDive: 'Containers are disposable by design, so persistent data must live outside the writable container layer. Named volumes are usually safer than ad hoc bind mounts because Docker manages their lifecycle and storage path explicitly.',
+    docUrl: 'https://docs.docker.com/engine/storage/volumes/',
+    docLabel: 'Docker volumes',
+    troubleshooting: {
+      symptom: 'Data disappears after a container rebuild or restart.',
+      checks: [
+        'Verify whether the service writes to the container filesystem or to a mounted volume.',
+        'Inspect the mounts section of the running container.',
+      ],
+      fix: 'Mount a named volume to the application data path and verify the path inside the container is correct.',
+      code: '$ docker inspect pg --format \'{{json .Mounts}}\'',
+    },
+  },
+  'bridge-network': {
+    group: 'images',
+    name: 'Bridge Network',
+    short: 'Default local network for container-to-container traffic',
+    color: '#7c3aed',
+    tag: 'NETWORK',
+    intro: 'Docker bridge networks let containers communicate by name on the same host while exposing only selected ports externally.',
+    example: {
+      scenario: 'A web container needs to talk to a local Postgres container.',
+      action: 'Both join the same user-defined bridge network. The web app can connect to hostname `postgres` directly without hard-coded IP addresses.',
+      code: '$ docker network create atlas-net\n$ docker run -d --name postgres --network atlas-net postgres:16\n$ docker run -d --name web --network atlas-net web:2.1',
+    },
+    responsibilities: [
+      'Provide DNS and IP connectivity between containers on one host',
+      'Isolate services into explicit local networks',
+      'Support safe local composition of multi-service apps',
+    ],
+    deepDive: 'User-defined bridge networks are better than the default bridge because they give you automatic DNS resolution and cleaner isolation. They are the standard local networking primitive for multi-container development.',
+    docUrl: 'https://docs.docker.com/engine/network/drivers/bridge/',
+    docLabel: 'Bridge network driver',
+    troubleshooting: {
+      symptom: 'One container cannot reach another by name.',
+      checks: [
+        'Confirm both containers are attached to the same user-defined network.',
+        'Verify the application is listening on the expected container port, not just localhost.',
+      ],
+      fix: 'Attach both services to the same bridge network and use the container name or service name as the hostname.',
+      code: '$ docker network inspect atlas-net',
+    },
+  },
+  compose: {
+    group: 'operations',
+    name: 'Docker Compose',
+    short: 'Multi-container app definition for local and small env workflows',
+    color: '#2563eb',
+    tag: 'ORCHESTRATION',
+    intro: 'Compose lets you describe several services, networks, and volumes in one file and launch them together with one command.',
+    example: {
+      scenario: 'A local stack needs `web`, `api`, `postgres`, and `redis`.',
+      action: 'Compose starts the whole dependency graph, creates the network and volumes, and makes startup repeatable for every developer on the team.',
+      code: '$ docker compose up --build\n[+] Running 4/4\n ✔ Container atlas-postgres-1  Started\n ✔ Container atlas-api-1       Started',
+    },
+    responsibilities: [
+      'Define multi-service local environments',
+      'Coordinate networks, volumes, build rules, and env files',
+      'Make local onboarding reproducible across machines',
+    ],
+    deepDive: 'Compose is where Docker becomes a usable app platform for development. Instead of many fragile `docker run` commands, you declare the stack once and keep the service graph versioned with the codebase.',
+    docUrl: 'https://docs.docker.com/compose/',
+    docLabel: 'Docker Compose docs',
+    troubleshooting: {
+      symptom: 'The stack starts, but one service races another and fails on boot.',
+      checks: [
+        'Review service health checks and startup dependencies.',
+        'Confirm the app retries database or cache connections instead of assuming instant readiness.',
+      ],
+      fix: 'Add health checks and design the app to tolerate dependency startup lag.',
+      code: 'healthcheck:\n  test: ["CMD", "pg_isready", "-U", "postgres"]',
+    },
+  },
+  'docker-logs': {
+    group: 'operations',
+    name: 'docker logs',
+    short: 'Fastest way to inspect live container output',
+    color: '#dc2626',
+    tag: 'TROUBLESHOOT',
+    intro: 'When a container fails, `docker logs` is usually the first place to look. It shows stdout and stderr from the main process.',
+    example: {
+      scenario: 'An API container restarts right after deployment.',
+      action: 'You stream logs and immediately see a missing `DATABASE_URL` environment variable causing startup failure.',
+      code: '$ docker logs -f atlas-api\nError: DATABASE_URL is required',
+    },
+    responsibilities: [
+      'Surface application startup and runtime output',
+      'Support live streaming during debugging',
+      'Reveal fast-fail config and connectivity errors',
+    ],
+    deepDive: 'Many container failures are not runtime-engine issues at all. They are plain application failures visible in logs within seconds. That is why logs should be your first stop before deeper runtime inspection.',
+    docUrl: 'https://docs.docker.com/reference/cli/docker/container/logs/',
+    docLabel: 'docker logs reference',
+    troubleshooting: {
+      symptom: 'A container keeps restarting and you are not sure why.',
+      checks: [
+        'Stream recent logs and match them with the restart policy.',
+        'Check whether the app exits with a non-zero code immediately after startup.',
+      ],
+      fix: 'Start with logs before changing the image or runtime flags.',
+      code: '$ docker logs --tail 100 -f atlas-api',
+    },
+  },
+  'docker-exec': {
+    group: 'operations',
+    name: 'docker exec',
+    short: 'Enter a running container to inspect it live',
+    color: '#be123c',
+    tag: 'TROUBLESHOOT',
+    intro: 'When logs are not enough, `docker exec` lets you inspect files, environment, ports, and running processes inside the live container.',
+    example: {
+      scenario: 'The app says it cannot find a config file even though the image build succeeded.',
+      action: 'You open a shell inside the running container, inspect `/app/config`, and discover the expected file was never copied into the final image stage.',
+      code: '$ docker exec -it atlas-api sh\n/app # ls -la /app/config',
+    },
+    responsibilities: [
+      'Inspect the live runtime environment',
+      'Validate mounted files, environment variables, and processes',
+      'Shorten the feedback loop for operational debugging',
+    ],
+    deepDive: 'Use `docker exec` to confirm what is actually present at runtime. It closes the gap between what the Dockerfile says should exist and what the live container really has.',
+    docUrl: 'https://docs.docker.com/reference/cli/docker/container/exec/',
+    docLabel: 'docker exec reference',
+    troubleshooting: {
+      symptom: 'The build succeeded, but runtime files or env values are missing.',
+      checks: [
+        'Inspect the final runtime stage, not the build stage assumptions.',
+        'Confirm the container user can read mounted files and directories.',
+      ],
+      fix: 'Use `docker exec` or `docker inspect` to prove the live container state before editing the Dockerfile.',
+      code: '$ docker exec -it atlas-api env | sort\n$ docker exec -it atlas-api ps aux',
+    },
+  },
+};
+
+const DOCKER_GROUPS = [
+  {
+    id: 'workspace',
+    title: 'Build Workspace',
+    color: '#1d4ed8',
+    colorDark: '#1e3a8a',
+    gradient: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+    bg: '#eff6ff',
+    components: ['docker-user', 'docker-cli', 'dockerfile', 'buildkit'],
+  },
+  {
+    id: 'engine',
+    title: 'Image & Distribution',
+    color: '#f97316',
+    colorDark: '#c2410c',
+    gradient: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)',
+    bg: '#fff7ed',
+    components: ['docker-engine', 'image', 'registry'],
+  },
+  {
+    id: 'runtime',
+    title: 'Runtime Stack',
+    color: '#16a34a',
+    colorDark: '#166534',
+    gradient: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+    bg: '#f0fdf4',
+    components: ['containerd', 'runc', 'container'],
+  },
+];
+
+const DOCKER_GROUP_COLOR_MAP = {
+  'docker-user': '#1d4ed8',
+  'docker-cli': '#1d4ed8',
+  dockerfile: '#1d4ed8',
+  buildkit: '#1d4ed8',
+  'docker-engine': '#f97316',
+  image: '#f97316',
+  registry: '#f97316',
+  containerd: '#16a34a',
+  runc: '#16a34a',
+  container: '#16a34a',
+};
+
+const DOCKER_SECONDARY_SECTIONS = [
+  { id: 'images', title: 'Images, Storage & Networking', color: '#8b5cf6', components: ['layer-cache', 'volume', 'bridge-network'] },
+  { id: 'operations', title: 'Operations & Troubleshooting', color: '#dc2626', components: ['compose', 'docker-logs', 'docker-exec'] },
+];
+
+const DOCKER_FLOWS = [
+  ['docker-user', 'docker-cli'],
+  ['docker-cli', 'dockerfile'],
+  ['docker-cli', 'buildkit'],
+  ['dockerfile', 'buildkit'],
+  ['buildkit', 'image'],
+  ['docker-cli', 'docker-engine'],
+  ['docker-engine', 'image'],
+  ['image', 'registry'],
+  ['docker-engine', 'containerd'],
+  ['containerd', 'runc'],
+  ['runc', 'container'],
+];
+
+const DOCKER_JOURNEY = [
+  { title: 'Write the Dockerfile', desc: 'Source code and a Dockerfile define how the image should be assembled.', actor: 'workspace' },
+  { title: 'Run docker build', desc: 'The Docker CLI sends the build context to the engine and BuildKit begins execution.', actor: 'docker build' },
+  { title: 'Resolve cache and dependencies', desc: 'BuildKit reuses cached layers where possible and executes only the invalidated steps.', actor: 'BuildKit' },
+  { title: 'Produce the image', desc: 'A tagged image is created locally with layers, metadata, and a digest.', actor: 'image' },
+  { title: 'Push to registry', desc: 'If this is a release build, the image is authenticated and pushed to a remote registry.', actor: 'registry' },
+  { title: 'Run the container', desc: 'A `docker run` request asks the engine to start a live instance of the image.', actor: 'engine' },
+  { title: 'Prepare filesystem snapshot', desc: 'containerd unpacks the image layers and creates the runtime task state.', actor: 'containerd' },
+  { title: 'Apply namespaces and cgroups', desc: 'runc creates the OCI runtime environment and launches the container process.', actor: 'runc' },
+  { title: 'Attach network and volume', desc: 'Ports, bridge network, mounts, and env vars are connected to the running container.', actor: 'runtime' },
+  { title: 'Troubleshoot live behavior', desc: 'If something fails, use logs, inspect, and exec to debug the running container in real time.', actor: 'ops' },
+];
+
+const FUTURE_TOPICS = [
+  { id: 'cicd', title: 'CI/CD Pipelines', blurb: 'Jobs, runners, artifacts, approvals, release flow.', color: '#2563eb' },
+  { id: 'terraform', title: 'Terraform', blurb: 'Providers, state, modules, plan, apply, drift.', color: '#0d9488' },
+  { id: 'monitoring', title: 'Monitoring', blurb: 'Metrics, logs, traces, SLOs, alerts, dashboards.', color: '#dc2626' },
+  { id: 'linux', title: 'Linux Internals', blurb: 'Processes, systemd, filesystems, networking, permissions.', color: '#7c3aed' },
+  { id: 'cloud', title: 'Cloud Foundations', blurb: 'VPCs, IAM, load balancers, compute, storage.', color: '#ea580c' },
+  { id: 'gitops', title: 'GitOps', blurb: 'Argo CD, Flux, reconciliation, promotion and rollback.', color: '#059669' },
+];
+
+const TOPICS = {
+  kubernetes: {
+    id: 'kubernetes',
+    name: 'Kubernetes',
+    short: 'Cluster anatomy, control loops, and real workloads.',
+    accent: '#326ce5',
+    accentSoft: '#dbeafe',
+    eyebrow: 'Interactive atlas · Kubernetes · every major component',
+    heroTitle: 'The anatomy of a cluster, revealed.',
+    heroLead: 'Trace how requests move across the control plane, worker nodes, networking, storage, and security layers. Click any component to inspect what it is, what it does, and a real-world example.',
+    heroStats: ['35+ components', 'animated control flow', 'production mental model'],
+    diagramLabel: 'CLUSTER · prod-01 · main architecture',
+    panelHint: 'hover / click components ->',
+    sectionsTitle: 'Beyond the control plane',
+    sectionsLead: 'The cluster boxes are only the beginning. The real power comes from workload APIs, networking, storage, security, autoscaling, and extensibility.',
+    workflowTitle: 'The journey of a kubectl apply',
+    workflowLead: 'From laptop command to running pod, this is the request path through the cluster.',
+    workflowCommand: 'kubectl apply -f checkout-v2.yaml',
+    workflowRealtimeLabel: 'Live request trace',
+    compareTitle: 'The mental model',
+    compareParagraphs: [
+      'Kubernetes is two ideas repeated everywhere: a single source of truth in etcd, and a set of independent control loops that reconcile reality toward the desired state.',
+      'Deployments, ReplicaSets, schedulers, kubelets, networking, autoscaling, and operators all follow that same pattern. Once that clicks, the platform stops feeling magical and starts feeling systematic.',
+    ],
+    footerTicker: 'KUBERNETES · CNCF PROJECT · v1.30',
+    emptySearch: 'No Kubernetes component matched that search.',
+    comingSoonCopy: 'This topic is on the roadmap for DevOps Atlas. The shell is ready; the explainer content is not published yet.',
+    components: KUBERNETES_COMPONENTS,
+    groups: KUBERNETES_GROUPS,
+    groupColorMap: KUBERNETES_GROUP_COLOR_MAP,
+    secondarySections: KUBERNETES_SECONDARY_SECTIONS,
+    flows: KUBERNETES_FLOWS,
+    journey: KUBERNETES_JOURNEY,
+  },
+  docker: {
+    id: 'docker',
+    name: 'Docker',
+    short: 'Builds, images, containers, and live troubleshooting.',
+    accent: '#0ea5e9',
+    accentSoft: '#e0f2fe',
+    eyebrow: 'Interactive atlas · Docker · build to runtime',
+    heroTitle: 'From Dockerfile to running container.',
+    heroLead: 'Follow the full container lifecycle: build, cache, package, push, run, inspect, and troubleshoot. The Docker topic now includes real examples, runtime debugging, and operational subtopics.',
+    heroStats: ['14 components', 'real-time troubleshooting', 'build-to-runtime flow'],
+    diagramLabel: 'DOCKER · local-dev · build and runtime graph',
+    panelHint: 'trace the lifecycle ->',
+    sectionsTitle: 'Build, ship, run, debug',
+    sectionsLead: 'Docker is more than `docker run`. It spans image construction, distribution, networking, persistence, and fast operational debugging.',
+    workflowTitle: 'The journey of a docker build and run',
+    workflowLead: 'See how source code becomes an image, then a live container you can inspect in real time.',
+    workflowCommand: 'docker build -t atlas-api:1.0 . && docker run -p 8080:8080 atlas-api:1.0',
+    workflowRealtimeLabel: 'Live container trace',
+    compareTitle: 'Docker in context',
+    compareParagraphs: [
+      'Docker solves packaging and local runtime consistency. It turns app code, dependencies, and startup logic into a portable artifact that behaves predictably across laptops, CI, and servers.',
+      'Kubernetes sits one level higher. Docker builds and runs containers; Kubernetes schedules, heals, scales, and networks them across a cluster.',
+    ],
+    footerTicker: 'DOCKER · IMAGES · CONTAINERS · TROUBLESHOOTING',
+    emptySearch: 'No Docker component matched that search.',
+    comingSoonCopy: 'This future topic will get the same interactive treatment as Kubernetes and Docker, with component cards, live flows, and troubleshooting drills.',
+    components: DOCKER_COMPONENTS,
+    groups: DOCKER_GROUPS,
+    groupColorMap: DOCKER_GROUP_COLOR_MAP,
+    secondarySections: DOCKER_SECONDARY_SECTIONS,
+    flows: DOCKER_FLOWS,
+    journey: DOCKER_JOURNEY,
+  },
+};

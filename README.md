@@ -1,17 +1,22 @@
-# Kubernetes Explainer
+# DevOps Atlas
 
-Interactive, visual architecture tour of every Kubernetes component — built in the spirit of the Transformer Explainer, with real-world examples, animated flow connectors, and deep-dive explanations for every part of a cluster.
+Interactive visual explainers for Kubernetes, Docker, and upcoming DevOps topics, with animated workflows, real examples, and troubleshooting drills.
 
 **Built by [Anas Kadambalath](https://github.com/anaskmh)**
 
+## Current topics
+
+- **Kubernetes**: cluster anatomy, control plane, worker nodes, workloads, networking, storage, security, autoscaling, and extensibility
+- **Docker**: Dockerfile, BuildKit, images, registries, runtime internals, volumes, networking, Compose, and troubleshooting
+- **Future topic structure**: CI/CD, Terraform, Monitoring, Linux, Cloud Foundations, and GitOps
+
 ## Features
 
-- **35+ components** covering control plane, worker nodes, workload APIs, networking, storage, security, autoscaling, and extensibility
-- **Real-world examples** for every component with scenario, action, and sample output
-- **Animated flow connectors** with gradient paths and traveling particles
-- **Group-colored zones** — blue for clients, purple for control plane, green for workers
-- **Official documentation links** to the matching page on kubernetes.io
-- **Full-text search** across all components
+- **Topic switcher home page** for navigating Kubernetes and Docker from one app shell
+- **Rich component panels** with intro, deep dive, real example, and official docs
+- **Animated architecture flows** with enhanced workflow traces
+- **Real-time troubleshooting blocks** for Docker operations and debugging
+- **Coming soon cards** for upcoming DevOps Atlas topics
 
 ## Local development
 
