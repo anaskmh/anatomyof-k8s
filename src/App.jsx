@@ -1,6 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, Search, Play, Pause, ExternalLink, BookOpen, Github, Linkedin } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Search, Play, Pause, ExternalLink, BookOpen, Github, Linkedin, Menu } from 'lucide-react';
+import './styles/responsive.css';
+import './styles/animations.css';
+import { useResponsive, useModal } from './hooks/useResponsive';
+import MobileNav from './components/MobileNav/MobileNav';
+import { CICD_TOPIC } from './data/cicd';
+import { TERRAFORM_TOPIC } from './data/terraform';
+import { MONITORING_TOPIC } from './data/monitoring';
+import { LINUX_TOPIC } from './data/linux';
+import { CLOUD_TOPIC } from './data/cloud';
+import { GITOPS_TOPIC } from './data/gitops';
 
 // ============================================================
 // COMPONENT DATA — every Kubernetes component with real examples
@@ -903,6 +913,10 @@ export default function App() {
   const containerRef = useRef(null);
   const [svgDims, setSvgDims] = useState({ w: 0, h: 0 });
   const [paths, setPaths] = useState([]);
+  
+  // Responsive hooks
+  const screen = useResponsive();
+  const { isOpen: mobileMenuOpen, toggle: toggleMobileMenu } = useModal(false);
 
   const topic = TOPICS[activeTopic];
   const components = topic.components;
@@ -3532,4 +3546,10 @@ const TOPICS = {
     flows: DOCKER_FLOWS,
     journey: DOCKER_JOURNEY,
   },
+  cicd: CICD_TOPIC,
+  terraform: TERRAFORM_TOPIC,
+  monitoring: MONITORING_TOPIC,
+  linux: LINUX_TOPIC,
+  cloud: CLOUD_TOPIC,
+  gitops: GITOPS_TOPIC,
 };

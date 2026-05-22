@@ -1,4 +1,8 @@
+@import './styles/responsive.css';
+@import './styles/animations.css';
+
 * { box-sizing: border-box; }
+
 html, body, #root {
   margin: 0;
   padding: 0;
@@ -6,7 +10,38 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 body {
   background: #fbf8f1;
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode support */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+/* Smooth transitions for color scheme changes */
+html, body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure code blocks are readable */
+code, pre {
+  font-family: 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  overflow-x: auto;
+}
+
+html.dark code, 
+html.dark pre {
+  background: rgba(255, 255, 255, 0.1);
 }

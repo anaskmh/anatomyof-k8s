@@ -1,0 +1,285 @@
+/* ============================================================
+   RESPONSIVE DESIGN & LAYOUT UTILITIES
+   Mobile-first approach with breakpoints at 640px, 1024px
+   ============================================================ */
+
+:root {
+  /* Breakpoints */
+  --bp-mobile: 640px;
+  --bp-tablet: 1024px;
+  --bp-desktop: 1280px;
+  
+  /* Spacing - scale across breakpoints */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2rem;      /* 32px */
+  --space-2xl: 3rem;     /* 48px */
+  
+  /* Typography - scales for mobile */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  
+  /* Touch targets - mobile minimum 44x44px */
+  --touch-min: 44px;
+  --touch-comfortable: 48px;
+  
+  /* Animation */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   MOBILE FIRST (< 640px)
+   ============================================================ */
+
+@media (max-width: 639px) {
+  /* Typography */
+  h1 { font-size: var(--text-2xl); line-height: 1.3; }
+  h2 { font-size: var(--text-xl); line-height: 1.4; }
+  h3 { font-size: var(--text-lg); line-height: 1.5; }
+  p { font-size: var(--text-base); }
+  
+  /* Spacing */
+  body { padding: var(--space-md); }
+  
+  /* Layout - single column */
+  .layout-grid { grid-template-columns: 1fr; gap: var(--space-md); }
+  .layout-two-col { grid-template-columns: 1fr; }
+  .layout-three-col { grid-template-columns: 1fr; }
+  
+  /* Hero section - full width, minimal padding */
+  .hero { padding: var(--space-lg) var(--space-md); text-align: center; }
+  .hero-title { font-size: var(--text-2xl); }
+  .hero-lead { font-size: var(--text-base); }
+  
+  /* Panels - stack vertically, full width */
+  .panel { width: 100%; margin-bottom: var(--space-lg); }
+  .panel-grid { grid-template-columns: 1fr; }
+  
+  /* Buttons - touch-friendly */
+  button, a.button {
+    min-height: var(--touch-min);
+    min-width: var(--touch-min);
+    padding: var(--space-md) var(--space-lg);
+    font-size: var(--text-base);
+  }
+  
+  /* Diagram - horizontal scroll on mobile */
+  .diagram-container { 
+    overflow-x: auto; 
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Workflow timeline - vertical layout */
+  .timeline { flex-direction: column; }
+  .timeline-item { min-width: 100%; }
+  
+  /* Navigation - hamburger menu */
+  .nav-desktop { display: none; }
+  .nav-mobile { display: block; }
+  
+  /* Search - full width */
+  .search-input { width: 100%; margin-bottom: var(--space-md); }
+  
+  /* Component cards - no 2-column grid */
+  .component-grid { grid-template-columns: 1fr; }
+  .component-card { padding: var(--space-md); }
+  
+  /* Reduce animations for faster load */
+  .animation-heavy { animation-duration: var(--duration-fast); }
+}
+
+/* ============================================================
+   TABLET (640px - 1023px)
+   ============================================================ */
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  /* Typography */
+  h1 { font-size: var(--text-3xl); line-height: 1.3; }
+  h2 { font-size: var(--text-2xl); line-height: 1.4; }
+  h3 { font-size: var(--text-lg); line-height: 1.5; }
+  
+  /* Spacing */
+  body { padding: var(--space-lg); }
+  
+  /* Layout - 2 column grid */
+  .layout-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-lg); }
+  .layout-two-col { grid-template-columns: repeat(2, 1fr); }
+  .layout-three-col { grid-template-columns: repeat(2, 1fr); }
+  
+  /* Hero section */
+  .hero { padding: var(--space-2xl) var(--space-lg); }
+  .hero-title { font-size: var(--text-3xl); }
+  .hero-lead { font-size: var(--text-lg); }
+  
+  /* Panels - side-by-side */
+  .panel { width: calc(50% - var(--space-md)); }
+  .panel-grid { grid-template-columns: repeat(2, 1fr); }
+  
+  /* Buttons */
+  button, a.button {
+    min-height: var(--touch-comfortable);
+    padding: var(--space-md) var(--space-lg);
+  }
+  
+  /* Diagram - horizontal scroll still needed */
+  .diagram-container { 
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
+  /* Workflow timeline - can be horizontal */
+  .timeline { flex-direction: row; overflow-x: auto; }
+  .timeline-item { min-width: 250px; }
+  
+  /* Navigation - hybrid */
+  .nav-desktop { display: block; }
+  .nav-mobile { display: block; }
+  
+  /* Search - comfortable size */
+  .search-input { max-width: 400px; }
+  
+  /* Component cards - 2 column */
+  .component-grid { grid-template-columns: repeat(2, 1fr); }
+  .component-card { padding: var(--space-lg); }
+}
+
+/* ============================================================
+   DESKTOP (> 1024px)
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  /* Typography */
+  h1 { font-size: var(--text-4xl); line-height: 1.2; }
+  h2 { font-size: var(--text-3xl); line-height: 1.3; }
+  h3 { font-size: var(--text-xl); line-height: 1.5; }
+  
+  /* Spacing */
+  body { padding: var(--space-2xl); }
+  
+  /* Layout - 3+ column grid */
+  .layout-grid { grid-template-columns: repeat(3, 1fr); gap: var(--space-2xl); }
+  .layout-two-col { grid-template-columns: repeat(2, 1fr); }
+  .layout-three-col { grid-template-columns: repeat(3, 1fr); }
+  
+  /* Hero section - full power */
+  .hero { padding: var(--space-2xl); }
+  .hero-title { font-size: var(--text-4xl); }
+  .hero-lead { font-size: var(--text-lg); }
+  
+  /* Panels - optimal 2-3 column layout */
+  .panel { width: calc(50% - var(--space-xl)); }
+  .panel-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-xl); }
+  
+  /* Buttons */
+  button, a.button {
+    min-height: 44px;
+    padding: var(--space-md) var(--space-xl);
+  }
+  
+  /* Diagram - full width, no scroll needed */
+  .diagram-container { 
+    overflow: visible;
+    width: 100%;
+  }
+  
+  /* Workflow timeline - horizontal with space */
+  .timeline { flex-direction: row; overflow: visible; }
+  .timeline-item { min-width: auto; flex: 1; }
+  
+  /* Navigation - full desktop */
+  .nav-desktop { display: flex; }
+  .nav-mobile { display: none; }
+  
+  /* Search - comfortable, not full width */
+  .search-input { max-width: 500px; }
+  
+  /* Component cards - 3 column with hover effects */
+  .component-grid { grid-template-columns: repeat(3, 1fr); }
+  .component-card { 
+    padding: var(--space-xl); 
+    transition: transform var(--duration-normal) var(--easing),
+                box-shadow var(--duration-normal) var(--easing);
+  }
+  .component-card:hover { 
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+.hide-mobile { display: none; }
+@media (min-width: 640px) { .hide-mobile { display: block; } }
+
+.hide-tablet { display: none; }
+@media (min-width: 1024px) { .hide-tablet { display: block; } }
+
+.show-mobile { display: block; }
+@media (min-width: 640px) { .show-mobile { display: none; } }
+
+.show-tablet { display: none; }
+@media (min-width: 640px) and (max-width: 1023px) { .show-tablet { display: block; } }
+
+.show-desktop { display: none; }
+@media (min-width: 1024px) { .show-desktop { display: block; } }
+
+/* Touch-friendly hitbox expansion */
+.touch-expand::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+}
+
+/* Responsive text scaling */
+.text-responsive {
+  font-size: clamp(var(--text-base), 1vw + 0.5rem, var(--text-2xl));
+}
+
+/* Smooth scroll on mobile-safe browsers */
+@supports (scroll-behavior: smooth) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Handle reduced motion accessibility preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Safe area for notched devices */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(var(--space-md), env(safe-area-inset-left));
+    padding-right: max(var(--space-md), env(safe-area-inset-right));
+    padding-top: max(var(--space-md), env(safe-area-inset-top));
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  }
+}
+
+/* Print styles */
+@media print {
+  body { background: white; }
+  .no-print { display: none; }
+  a { text-decoration: underline; }
+}
