@@ -52,6 +52,14 @@ export const LINUX_GROUPS = [
   { id: 'isolation', title: 'Isolation', color: '#0284c7', components: ['cgroups', 'namespaces'] },
 ];
 
+export const LINUX_SECONDARY_SECTIONS = [
+  { id: 'core', title: 'Core', color: '#0891b2', components: ['process', 'systemd'] },
+  { id: 'storage', title: 'Storage', color: '#16a34a', components: ['filesystem'] },
+  { id: 'network', title: 'Networking', color: '#7c3aed', components: ['networking'] },
+  { id: 'security', title: 'Security', color: '#ea580c', components: ['permissions'] },
+  { id: 'isolation', title: 'Isolation', color: '#0284c7', components: ['cgroups', 'namespaces'] },
+];
+
 export const LINUX_FLOWS = [
   ['process', 'cgroups'],
   ['process', 'namespaces'],
@@ -78,6 +86,7 @@ export const LINUX_TOPIC = {
   heroStats: ['7 core concepts', 'boot to container', 'Linux abstractions'],
   components: LINUX_COMPONENTS,
   groups: LINUX_GROUPS,
+  secondarySections: LINUX_SECONDARY_SECTIONS,
   flows: LINUX_FLOWS,
   journey: LINUX_JOURNEY,
 };

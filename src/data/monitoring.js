@@ -58,6 +58,14 @@ export const MONITORING_GROUPS = [
   { id: 'sre', title: 'SRE & SLOs', color: '#059669', components: ['slo'] },
 ];
 
+export const MONITORING_SECONDARY_SECTIONS = [
+  { id: 'collection', title: 'Collection', color: '#dc2626', components: ['prometheus', 'loki'] },
+  { id: 'visualization', title: 'Visualization', color: '#16a34a', components: ['grafana'] },
+  { id: 'tracing', title: 'Tracing', color: '#7c3aed', components: ['jaeger'] },
+  { id: 'alerting', title: 'Alerting', color: '#ea580c', components: ['alertmanager'] },
+  { id: 'sre', title: 'SRE & SLOs', color: '#059669', components: ['slo'] },
+];
+
 export const MONITORING_FLOWS = [
   ['prometheus', 'grafana'],
   ['loki', 'grafana'],
@@ -85,6 +93,7 @@ export const MONITORING_TOPIC = {
   heroStats: ['6 key tools', 'MELT model', 'SLO framework'],
   components: MONITORING_COMPONENTS,
   groups: MONITORING_GROUPS,
+  secondarySections: MONITORING_SECONDARY_SECTIONS,
   flows: MONITORING_FLOWS,
   journey: MONITORING_JOURNEY,
 };

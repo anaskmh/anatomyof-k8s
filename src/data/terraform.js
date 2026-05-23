@@ -242,6 +242,16 @@ export const TERRAFORM_GROUP_COLOR_MAP = {
   'workspace': '#8b5cf6',
 };
 
+export const TERRAFORM_SECONDARY_SECTIONS = [
+  { id: 'core', title: 'Core Tools', color: '#7c3aed', components: ['terraform-cli'] },
+  { id: 'provider', title: 'Cloud Providers', color: '#0d9488', components: ['provider'] },
+  { id: 'backend', title: 'State & Backend', color: '#dc2626', components: ['state-management'] },
+  { id: 'abstraction', title: 'Abstraction & Reuse', color: '#0891b2', components: ['module'] },
+  { id: 'workflow', title: 'Workflow & Execution', color: '#059669', components: ['plan-apply'] },
+  { id: 'validation', title: 'Validation & Compliance', color: '#f59e0b', components: ['drift-detection'] },
+  { id: 'organization', title: 'Organization & Scaling', color: '#8b5cf6', components: ['workspace'] },
+];
+
 export const TERRAFORM_FLOWS = [
   ['terraform-cli', 'provider'],
   ['terraform-cli', 'state-management'],
@@ -290,6 +300,7 @@ export const TERRAFORM_TOPIC = {
   components: TERRAFORM_COMPONENTS,
   groups: TERRAFORM_GROUPS,
   groupColorMap: TERRAFORM_GROUP_COLOR_MAP,
+  secondarySections: TERRAFORM_SECONDARY_SECTIONS,
   flows: TERRAFORM_FLOWS,
   journey: TERRAFORM_JOURNEY,
 };

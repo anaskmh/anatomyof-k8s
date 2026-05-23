@@ -18,6 +18,15 @@ export const GITOPS_GROUPS = [
   { id: 'safety', title: 'Safety & Recovery', color: '#ea580c', components: ['rollback'] },
 ];
 
+export const GITOPS_SECONDARY_SECTIONS = [
+  { id: 'operator', title: 'Operators', color: '#dc2626', components: ['argocd', 'flux'] },
+  { id: 'source', title: 'Source of Truth', color: '#0891b2', components: ['git-repo'] },
+  { id: 'core', title: 'Core Concepts', color: '#16a34a', components: ['reconciliation'] },
+  { id: 'workflow', title: 'Workflow', color: '#7c3aed', components: ['promotion'] },
+  { id: 'security', title: 'Security', color: '#dc2626', components: ['secrets'] },
+  { id: 'safety', title: 'Safety & Recovery', color: '#ea580c', components: ['rollback'] },
+];
+
 export const GITOPS_FLOWS = [
   ['git-repo', 'argocd'],
   ['git-repo', 'flux'],
@@ -47,6 +56,7 @@ export const GITOPS_TOPIC = {
   heroStats: ['7 concepts', 'pull-based delivery', 'automatic reconciliation'],
   components: GITOPS_COMPONENTS,
   groups: GITOPS_GROUPS,
+  secondarySections: GITOPS_SECONDARY_SECTIONS,
   flows: GITOPS_FLOWS,
   journey: GITOPS_JOURNEY,
 };
