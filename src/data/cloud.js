@@ -23,6 +23,16 @@ export const CLOUD_SECONDARY_SECTIONS = [
   { id: 'storage', title: 'Storage', color: '#16a34a', components: ['storage', 'db'] },
 ];
 
+export const CLOUD_GROUP_COLOR_MAP = {
+  vpc: '#0891b2',
+  iam: '#dc2626',
+  compute: '#7c3aed',
+  storage: '#16a34a',
+  db: '#16a34a',
+  lb: '#0284c7',
+  dns: '#0891b2',
+};
+
 export const CLOUD_FLOWS = [
   ['vpc', 'compute'],
   ['compute', 'storage'],
@@ -50,6 +60,7 @@ export const CLOUD_TOPIC = {
   heroStats: ['7 core services', 'multi-cloud comparison', 'cloud architecture'],
   components: CLOUD_COMPONENTS,
   groups: CLOUD_GROUPS,
+  groupColorMap: CLOUD_GROUP_COLOR_MAP,
   secondarySections: CLOUD_SECONDARY_SECTIONS,
   flows: CLOUD_FLOWS,
   journey: CLOUD_JOURNEY,

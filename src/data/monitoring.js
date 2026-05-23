@@ -66,6 +66,15 @@ export const MONITORING_SECONDARY_SECTIONS = [
   { id: 'sre', title: 'SRE & SLOs', color: '#059669', components: ['slo'] },
 ];
 
+export const MONITORING_GROUP_COLOR_MAP = {
+  prometheus: '#dc2626',
+  loki: '#0284c7',
+  grafana: '#16a34a',
+  jaeger: '#7c3aed',
+  alertmanager: '#ea580c',
+  slo: '#059669',
+};
+
 export const MONITORING_FLOWS = [
   ['prometheus', 'grafana'],
   ['loki', 'grafana'],
@@ -93,6 +102,7 @@ export const MONITORING_TOPIC = {
   heroStats: ['6 key tools', 'MELT model', 'SLO framework'],
   components: MONITORING_COMPONENTS,
   groups: MONITORING_GROUPS,
+  groupColorMap: MONITORING_GROUP_COLOR_MAP,
   secondarySections: MONITORING_SECONDARY_SECTIONS,
   flows: MONITORING_FLOWS,
   journey: MONITORING_JOURNEY,

@@ -60,6 +60,16 @@ export const LINUX_SECONDARY_SECTIONS = [
   { id: 'isolation', title: 'Isolation', color: '#0284c7', components: ['cgroups', 'namespaces'] },
 ];
 
+export const LINUX_GROUP_COLOR_MAP = {
+  process: '#0891b2',
+  systemd: '#dc2626',
+  filesystem: '#16a34a',
+  networking: '#7c3aed',
+  permissions: '#ea580c',
+  cgroups: '#0284c7',
+  namespaces: '#0284c7',
+};
+
 export const LINUX_FLOWS = [
   ['process', 'cgroups'],
   ['process', 'namespaces'],
@@ -86,6 +96,7 @@ export const LINUX_TOPIC = {
   heroStats: ['7 core concepts', 'boot to container', 'Linux abstractions'],
   components: LINUX_COMPONENTS,
   groups: LINUX_GROUPS,
+  groupColorMap: LINUX_GROUP_COLOR_MAP,
   secondarySections: LINUX_SECONDARY_SECTIONS,
   flows: LINUX_FLOWS,
   journey: LINUX_JOURNEY,

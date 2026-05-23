@@ -27,6 +27,16 @@ export const GITOPS_SECONDARY_SECTIONS = [
   { id: 'safety', title: 'Safety & Recovery', color: '#ea580c', components: ['rollback'] },
 ];
 
+export const GITOPS_GROUP_COLOR_MAP = {
+  'argocd': '#dc2626',
+  'flux': '#0284c7',
+  'git-repo': '#0891b2',
+  'reconciliation': '#16a34a',
+  'promotion': '#7c3aed',
+  'secrets': '#dc2626',
+  'rollback': '#ea580c',
+};
+
 export const GITOPS_FLOWS = [
   ['git-repo', 'argocd'],
   ['git-repo', 'flux'],
@@ -56,6 +66,7 @@ export const GITOPS_TOPIC = {
   heroStats: ['7 concepts', 'pull-based delivery', 'automatic reconciliation'],
   components: GITOPS_COMPONENTS,
   groups: GITOPS_GROUPS,
+  groupColorMap: GITOPS_GROUP_COLOR_MAP,
   secondarySections: GITOPS_SECONDARY_SECTIONS,
   flows: GITOPS_FLOWS,
   journey: GITOPS_JOURNEY,
