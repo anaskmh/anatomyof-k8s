@@ -326,7 +326,7 @@ export const CICD_TOPIC = {
   short: 'Automated build, test, and deploy workflows.',
   accent: '#2563eb',
   accentSoft: '#dbeafe',
-  eyebrow: 'Interactive atlas · CI/CD · workflow automation',
+  eyebrow: 'Interactive guide · CI/CD · workflow automation',
   heroTitle: 'Automate your build, test, and deploy workflows.',
   heroLead: 'Follow GitHub Actions workflows from code push to production deploy. See how runners execute jobs, artifacts move between stages, and approvals protect production.',
   heroStats: ['8 key components', 'real workflow example', 'security best practices'],

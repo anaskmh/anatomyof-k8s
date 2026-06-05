@@ -1,9 +1,9 @@
 {
-  "name": "devops-atlas",
+  "name": "cloudtruck",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Interactive visual explainer for Kubernetes, Docker, and DevOps systems",
+  "description": "CloudTruck — Interactive visual explainers for Kubernetes, Docker, and modern DevOps systems",
   "author": "Anas Kadambalath",
   "scripts": {
     "dev": "vite",

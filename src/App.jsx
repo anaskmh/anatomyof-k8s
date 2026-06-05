@@ -1148,7 +1148,7 @@ export default function App() {
         }}>
           <div className="header-shell">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <AtlasMark accent={topic.accent} />
+              <AtlasMark />
               <div>
                 <div style={{
                   fontFamily: "'IBM Plex Mono', monospace",
@@ -1158,15 +1158,16 @@ export default function App() {
                   textTransform: 'uppercase',
                   marginBottom: 2,
                 }}>
-                  Interactive DevOps learning map
+                  DevOps Community
                 </div>
                 <div style={{
-                  fontFamily: "'Instrument Serif', serif",
+                  fontFamily: "'Outfit', 'Instrument Serif', serif",
                   fontSize: 28,
                   letterSpacing: '-0.01em',
-                  fontWeight: 400,
+                  fontWeight: 800,
                 }}>
-                  DevOps <em style={{ color: topic.accent }}>Atlas</em>
+                  <span style={{ color: '#0ea5e9' }}>Cloud</span>
+                  <span style={{ color: '#f97316' }}>Truck</span>
                 </div>
               </div>
             </div>
@@ -2168,18 +2169,19 @@ export default function App() {
 // ============================================================
 // ATLAS MARK
 // ============================================================
-function AtlasMark({ accent = '#326ce5' }) {
+function AtlasMark() {
   return (
-    <svg width="36" height="36" viewBox="0 0 100 100" fill="none" aria-label="DevOps Atlas logo">
-      <rect x="10" y="10" width="80" height="80" rx="24" fill={accent} />
-      <path d="M26 62L50 26L74 62" stroke="#fff" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M34 62H66" stroke="#fff" strokeWidth="7" strokeLinecap="round" />
-      <circle cx="50" cy="50" r="8" fill="#fff" />
-      <g opacity="0.18">
-        <circle cx="50" cy="50" r="28" stroke="#fff" strokeWidth="4" />
-        <circle cx="50" cy="50" r="38" stroke="#fff" strokeWidth="3" />
-      </g>
-    </svg>
+    <img
+      src="/cloudtruck_logo.jpg"
+      alt="CloudTruck Logo"
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 8,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        objectFit: 'cover',
+      }}
+    />
   );
 }
 
@@ -2744,7 +2746,7 @@ function initialsOf(name) {
 // VISITOR COUNTER
 // ============================================================
 const VISITOR_BASE = 4341;
-const VISITOR_COUNTER_KEY = 'devops-atlas/visitors';
+const VISITOR_COUNTER_KEY = 'cloudtruck/visitors';
 
 function VisitorCounter() {
   const [count, setCount] = useState(null);
@@ -2755,7 +2757,7 @@ function VisitorCounter() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    // hit countapi — increments on every real page load for the DevOps Atlas counter
+    // hit countapi — increments on every real page load for the CloudTruck counter
     fetch(`https://api.countapi.xyz/hit/${VISITOR_COUNTER_KEY}`)
       .then((r) => r.json())
       .then((data) => {
@@ -2923,7 +2925,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'A backend developer is fixing a Node.js API bug before pushing to staging.',
       action: 'They edit code locally, rebuild the image, run it in a container, and validate the fix before pushing anything upstream.',
-      code: '$ npm test\n$ docker build -t atlas-api:dev .\n$ docker run --rm -p 8080:8080 atlas-api:dev',
+      code: '$ npm test\n$ docker build -t cloudtruck-api:dev .\n$ docker run --rm -p 8080:8080 cloudtruck-api:dev',
     },
     responsibilities: [
       'Own the source tree, Dockerfile, and local configuration',
@@ -2940,7 +2942,7 @@ const DOCKER_COMPONENTS = {
         'Inspect the working directory, copied files, and installed dependencies inside the image.',
       ],
       fix: 'Run the same command inside the container, not on the host, and compare filesystem paths, users, and environment values.',
-      code: '$ docker run --rm -it atlas-api:dev sh\n# env | sort\n# ls -la /app',
+      code: '$ docker run --rm -it cloudtruck-api:dev sh\n# env | sort\n# ls -la /app',
     },
   },
   'docker-cli': {
@@ -3013,7 +3015,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'A Go service build needs private modules and aggressive cache reuse in CI.',
       action: 'BuildKit mounts an SSH key during the build, reuses cached layers, and only reruns the minimal set of steps affected by code changes.',
-      code: '$ DOCKER_BUILDKIT=1 docker build --ssh default -t atlas-go:latest .',
+      code: '$ DOCKER_BUILDKIT=1 docker build --ssh default -t cloudtruck-go:latest .',
     },
     responsibilities: [
       'Optimize build graph execution',
@@ -3071,9 +3073,9 @@ const DOCKER_COMPONENTS = {
     tag: 'ARTIFACT',
     intro: 'A Docker image is the built artifact: layered filesystem, metadata, default command, environment, and history.',
     example: {
-      scenario: 'CI builds `atlas-api:2026-05-06.3` after a merge to main.',
+      scenario: 'CI builds `cloudtruck-api:2026-05-06.3` after a merge to main.',
       action: 'The image gets a unique tag and digest, is scanned, and becomes the exact artifact promoted from dev to staging to production.',
-      code: '$ docker images atlas-api\nREPOSITORY   TAG            IMAGE ID       SIZE\natlas-api    2026-05-06.3   4d8d8b8d8c1a   188MB',
+      code: '$ docker images cloudtruck-api\nREPOSITORY   TAG            IMAGE ID       SIZE\ncloudtruck-api    2026-05-06.3   4d8d8b8d8c1a   188MB',
     },
     responsibilities: [
       'Package code, dependencies, and startup metadata into a portable artifact',
@@ -3090,7 +3092,7 @@ const DOCKER_COMPONENTS = {
         'Check whether an old local cache or stale registry tag was reused.',
       ],
       fix: 'Promote immutable digests through environments and avoid relying on `latest`.',
-      code: '$ docker image inspect atlas-api:prod --format \'{{index .RepoDigests 0}}\'',
+      code: '$ docker image inspect cloudtruck-api:prod --format \'{{index .RepoDigests 0}}\'',
     },
   },
   registry: {
@@ -3103,7 +3105,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'A CI pipeline publishes a release image after tests pass.',
       action: 'The pipeline authenticates to the registry, pushes the image layers that are not already present, and publishes a tag and digest for downstream deployment steps.',
-      code: '$ docker push ghcr.io/acme/atlas-api:1.4.2\nlayer already exists\nlatest: digest: sha256:3f2...',
+      code: '$ docker push ghcr.io/acme/cloudtruck-api:1.4.2\nlayer already exists\nlatest: digest: sha256:3f2...',
     },
     responsibilities: [
       'Store image manifests and layers',
@@ -3120,7 +3122,7 @@ const DOCKER_COMPONENTS = {
         'Verify repository permissions and whether the tag target exists.',
       ],
       fix: 'Re-authenticate against the exact registry and confirm the repository path matches the image tag.',
-      code: '$ docker login ghcr.io\n$ docker tag atlas-api:1.4 ghcr.io/acme/atlas-api:1.4\n$ docker push ghcr.io/acme/atlas-api:1.4',
+      code: '$ docker login ghcr.io\n$ docker tag cloudtruck-api:1.4 ghcr.io/acme/cloudtruck-api:1.4\n$ docker push ghcr.io/acme/cloudtruck-api:1.4',
     },
   },
   containerd: {
@@ -3240,7 +3242,7 @@ const DOCKER_COMPONENTS = {
         'Check whether tags and cache-from settings point to a valid previous image.',
       ],
       fix: 'Export and import cache metadata explicitly in CI when runners are ephemeral.',
-      code: '$ docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t atlas-api:cache .',
+      code: '$ docker build --build-arg BUILDKIT_INLINE_CACHE=1 -t cloudtruck-api:cache .',
     },
   },
   volume: {
@@ -3283,7 +3285,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'A web container needs to talk to a local Postgres container.',
       action: 'Both join the same user-defined bridge network. The web app can connect to hostname `postgres` directly without hard-coded IP addresses.',
-      code: '$ docker network create atlas-net\n$ docker run -d --name postgres --network atlas-net postgres:16\n$ docker run -d --name web --network atlas-net web:2.1',
+      code: '$ docker network create cloudtruck-net\n$ docker run -d --name postgres --network cloudtruck-net postgres:16\n$ docker run -d --name web --network cloudtruck-net web:2.1',
     },
     responsibilities: [
       'Provide DNS and IP connectivity between containers on one host',
@@ -3300,7 +3302,7 @@ const DOCKER_COMPONENTS = {
         'Verify the application is listening on the expected container port, not just localhost.',
       ],
       fix: 'Attach both services to the same bridge network and use the container name or service name as the hostname.',
-      code: '$ docker network inspect atlas-net',
+      code: '$ docker network inspect cloudtruck-net',
     },
   },
   compose: {
@@ -3313,7 +3315,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'A local stack needs `web`, `api`, `postgres`, and `redis`.',
       action: 'Compose starts the whole dependency graph, creates the network and volumes, and makes startup repeatable for every developer on the team.',
-      code: '$ docker compose up --build\n[+] Running 4/4\n ✔ Container atlas-postgres-1  Started\n ✔ Container atlas-api-1       Started',
+      code: '$ docker compose up --build\n[+] Running 4/4\n ✔ Container cloudtruck-postgres-1  Started\n ✔ Container cloudtruck-api-1       Started',
     },
     responsibilities: [
       'Define multi-service local environments',
@@ -3343,7 +3345,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'An API container restarts right after deployment.',
       action: 'You stream logs and immediately see a missing `DATABASE_URL` environment variable causing startup failure.',
-      code: '$ docker logs -f atlas-api\nError: DATABASE_URL is required',
+      code: '$ docker logs -f cloudtruck-api\nError: DATABASE_URL is required',
     },
     responsibilities: [
       'Surface application startup and runtime output',
@@ -3360,7 +3362,7 @@ const DOCKER_COMPONENTS = {
         'Check whether the app exits with a non-zero code immediately after startup.',
       ],
       fix: 'Start with logs before changing the image or runtime flags.',
-      code: '$ docker logs --tail 100 -f atlas-api',
+      code: '$ docker logs --tail 100 -f cloudtruck-api',
     },
   },
   'docker-exec': {
@@ -3373,7 +3375,7 @@ const DOCKER_COMPONENTS = {
     example: {
       scenario: 'The app says it cannot find a config file even though the image build succeeded.',
       action: 'You open a shell inside the running container, inspect `/app/config`, and discover the expected file was never copied into the final image stage.',
-      code: '$ docker exec -it atlas-api sh\n/app # ls -la /app/config',
+      code: '$ docker exec -it cloudtruck-api sh\n/app # ls -la /app/config',
     },
     responsibilities: [
       'Inspect the live runtime environment',
@@ -3390,7 +3392,7 @@ const DOCKER_COMPONENTS = {
         'Confirm the container user can read mounted files and directories.',
       ],
       fix: 'Use `docker exec` or `docker inspect` to prove the live container state before editing the Dockerfile.',
-      code: '$ docker exec -it atlas-api env | sort\n$ docker exec -it atlas-api ps aux',
+      code: '$ docker exec -it cloudtruck-api env | sort\n$ docker exec -it cloudtruck-api ps aux',
     },
   },
 };
@@ -3486,7 +3488,7 @@ const TOPICS = {
     short: 'Cluster anatomy, control loops, and real workloads.',
     accent: '#326ce5',
     accentSoft: '#dbeafe',
-    eyebrow: 'Interactive atlas · Kubernetes · every major component',
+    eyebrow: 'Interactive guide · Kubernetes · every major component',
     heroTitle: 'The anatomy of a cluster, revealed.',
     heroLead: 'Trace how requests move across the control plane, worker nodes, networking, storage, and security layers. Click any component to inspect what it is, what it does, and a real-world example.',
     heroStats: ['35+ components', 'animated control flow', 'production mental model'],
@@ -3505,7 +3507,7 @@ const TOPICS = {
     ],
     footerTicker: 'KUBERNETES · CNCF PROJECT · v1.30',
     emptySearch: 'No Kubernetes component matched that search.',
-    comingSoonCopy: 'This topic is on the roadmap for DevOps Atlas. The shell is ready; the explainer content is not published yet.',
+    comingSoonCopy: 'This topic is on the roadmap for CloudTruck. The shell is ready; the explainer content is not published yet.',
     components: KUBERNETES_COMPONENTS,
     groups: KUBERNETES_GROUPS,
     groupColorMap: KUBERNETES_GROUP_COLOR_MAP,
@@ -3519,7 +3521,7 @@ const TOPICS = {
     short: 'Builds, images, containers, and live troubleshooting.',
     accent: '#0ea5e9',
     accentSoft: '#e0f2fe',
-    eyebrow: 'Interactive atlas · Docker · build to runtime',
+    eyebrow: 'Interactive guide · Docker · build to runtime',
     heroTitle: 'From Dockerfile to running container.',
     heroLead: 'Follow the full container lifecycle: build, cache, package, push, run, inspect, and troubleshoot. The Docker topic now includes real examples, runtime debugging, and operational subtopics.',
     heroStats: ['14 components', 'real-time troubleshooting', 'build-to-runtime flow'],
@@ -3529,7 +3531,7 @@ const TOPICS = {
     sectionsLead: 'Docker is more than `docker run`. It spans image construction, distribution, networking, persistence, and fast operational debugging.',
     workflowTitle: 'The journey of a docker build and run',
     workflowLead: 'See how source code becomes an image, then a live container you can inspect in real time.',
-    workflowCommand: 'docker build -t atlas-api:1.0 . && docker run -p 8080:8080 atlas-api:1.0',
+    workflowCommand: 'docker build -t cloudtruck-api:1.0 . && docker run -p 8080:8080 cloudtruck-api:1.0',
     workflowRealtimeLabel: 'Live container trace',
     compareTitle: 'Docker in context',
     compareParagraphs: [

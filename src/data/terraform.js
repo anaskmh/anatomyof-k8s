@@ -278,7 +278,7 @@ export const TERRAFORM_TOPIC = {
   short: 'Infrastructure as Code: providers, state, modules, workflows.',
   accent: '#7c3aed',
   accentSoft: '#ede9fe',
-  eyebrow: 'Interactive atlas · Terraform · IaC automation',
+  eyebrow: 'Interactive guide · Terraform · IaC automation',
   heroTitle: 'Infrastructure as code: provision, manage, and scale.',
   heroLead: 'Understand how Terraform translates HCL code into real infrastructure. Learn about providers, state management, modules, plan/apply workflows, and drift detection.',
   heroStats: ['7 core concepts', 'multi-cloud support', 'safe infrastructure changes'],
