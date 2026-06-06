@@ -1114,18 +1114,21 @@ export default function App() {
         .scrollbar-styled::-webkit-scrollbar-thumb:hover { background: #a89e85; }
 
         .header-shell { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-        .header-tools { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: flex-end; }
+        .header-tools { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
         .hero-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr); gap: 26px; align-items: stretch; }
         .topic-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .diagram-grid { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 32px; margin-top: 30px; position: relative; z-index: 2; }
         .workflow-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr); gap: 22px; align-items: stretch; }
         .future-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
         .detail-panel { width: 480px; max-width: calc(100vw - 40px); }
+        .nav-pill { max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+        .nav-pill::-webkit-scrollbar { display: none; }
+        .nav-pill > button { flex-shrink: 0; white-space: nowrap; }
 
         @media (max-width: 1120px) {
           .header-shell { flex-direction: column; align-items: stretch; }
           .header-tools { flex-wrap: wrap; justify-content: stretch; }
-          .hero-layout, .workflow-grid, .diagram-grid { grid-template-columns: 1fr; }
+          .hero-layout, .workflow-grid, .diagram-grid { grid-template-columns: minmax(0, 1fr); }
           .future-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
@@ -1133,6 +1136,7 @@ export default function App() {
           header { padding: 16px 18px !important; }
           .topic-row, .future-grid { grid-template-columns: 1fr; }
           .detail-panel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
+          .header-tools { gap: 10px; }
         }
       `}</style>
 
@@ -1173,7 +1177,7 @@ export default function App() {
             </div>
 
             <div className="header-tools">
-              <div style={{
+              <div className="nav-pill" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
