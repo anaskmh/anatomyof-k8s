@@ -2751,7 +2751,9 @@ function initialsOf(name) {
 // VISITOR COUNTER
 // ============================================================
 const VISITOR_BASE = 4341;
-const VISITOR_COUNTER_KEY = 'cloudtruck/visitors';
+// Abacus (https://abacus.jasoncameron.dev) — free, CORS-enabled hit counter.
+// Replaces api.countapi.xyz, which was shut down and no longer resolves.
+const VISITOR_COUNTER_KEY = 'cloudtruck-devops/visitors';
 
 function VisitorCounter() {
   const [count, setCount] = useState(null);
@@ -2762,8 +2764,8 @@ function VisitorCounter() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    // hit countapi — increments on every real page load for the CloudTruck counter
-    fetch(`https://api.countapi.xyz/hit/${VISITOR_COUNTER_KEY}`)
+    // hit Abacus — increments on every real page load for the CloudTruck counter
+    fetch(`https://abacus.jasoncameron.dev/hit/${VISITOR_COUNTER_KEY}`)
       .then((r) => r.json())
       .then((data) => {
         const real = data.value || 0;
