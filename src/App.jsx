@@ -1312,7 +1312,7 @@ export default function App() {
 
         <section style={{ padding: '56px 24px 18px', maxWidth: 1400, margin: '0 auto' }}>
           <div className="hero-layout">
-            <div style={{ padding: '24px 8px 24px 8px', alignSelf: 'center' }}>
+            <div style={{ padding: '24px 8px 24px 8px', alignSelf: 'start' }}>
               <div style={{
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: 11,
@@ -1467,16 +1467,14 @@ export default function App() {
                     }}>
                       {entry.name}
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.4 }}>
                       {entry.short}
-                    </div>
-                    <div style={{ fontSize: 13, color: '#6b6552', lineHeight: 1.55 }}>
-                      {entry.heroLead}
                     </div>
                   </button>
                 ))}
               </div>
 
+              {FUTURE_TOPICS.length > 0 && (
               <div style={{ paddingTop: 16, borderTop: '1px solid #efe6d5' }}>
                 <div style={{
                   display: 'flex',
@@ -1530,6 +1528,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              )}
             </div>
           </div>
         </section>
@@ -1982,6 +1981,7 @@ export default function App() {
           ))}
         </section>
 
+        {FUTURE_TOPICS.length > 0 && (
         <section style={{ maxWidth: 1400, margin: '40px auto 80px', padding: '0 24px' }}>
           <div style={{ background: 'rgba(255,255,255,0.78)', border: '1px solid #e8e0cc', borderRadius: 24, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -2043,6 +2043,7 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
 
         <footer style={{
           padding: '48px 32px 40px',
@@ -3472,14 +3473,8 @@ const DOCKER_JOURNEY = [
   { title: 'Troubleshoot live behavior', desc: 'If something fails, use logs, inspect, and exec to debug the running container in real time.', actor: 'ops' },
 ];
 
-const FUTURE_TOPICS = [
-  { id: 'cicd', title: 'CI/CD Pipelines', blurb: 'Jobs, runners, artifacts, approvals, release flow.', color: '#2563eb' },
-  { id: 'terraform', title: 'Terraform', blurb: 'Providers, state, modules, plan, apply, drift.', color: '#0d9488' },
-  { id: 'monitoring', title: 'Monitoring', blurb: 'Metrics, logs, traces, SLOs, alerts, dashboards.', color: '#dc2626' },
-  { id: 'linux', title: 'Linux Internals', blurb: 'Processes, systemd, filesystems, networking, permissions.', color: '#7c3aed' },
-  { id: 'cloud', title: 'Cloud Foundations', blurb: 'VPCs, IAM, load balancers, compute, storage.', color: '#ea580c' },
-  { id: 'gitops', title: 'GitOps', blurb: 'Argo CD, Flux, reconciliation, promotion and rollback.', color: '#059669' },
-];
+// All topics are now live — no future/coming-soon placeholders.
+const FUTURE_TOPICS = [];
 
 const TOPICS = {
   kubernetes: {
