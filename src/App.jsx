@@ -2084,7 +2084,7 @@ export default function App() {
       </div>
 
       <AnimatePresence>
-        {selected && (
+        {selected && components[selected] && (
           <motion.div
             initial={{ x: 520, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
