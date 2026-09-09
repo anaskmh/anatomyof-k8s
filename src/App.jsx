@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Search, Play, Pause, ExternalLink, BookOpen, Github, Linkedin, Menu } from 'lucide-react';
 import './styles/responsive.css';
 import './styles/animations.css';
 import { useResponsive, useModal } from './hooks/useResponsive';
 import MobileNav from './components/MobileNav/MobileNav';
+const CareersPage = React.lazy(() => import('./components/Careers/CareersPage'));
 import { CICD_TOPIC } from './data/cicd';
 import { TERRAFORM_TOPIC } from './data/terraform';
 import { MONITORING_TOPIC } from './data/monitoring';
@@ -900,7 +902,14 @@ const KUBERNETES_FLOWS = [
 // MAIN APP
 // ============================================================
 export default function App() {
-  const [activeTopic, setActiveTopic] = useState('kubernetes');
+  // Routing: /topics/:topicId renders an explainer, /careers renders the careers page.
+  const { topicId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const view = location.pathname.startsWith('/careers') ? 'careers' : 'explainers';
+  const activeTopic = topicId && TOPICS[topicId] ? topicId : 'kubernetes';
+  const setActiveTopic = (id) => navigate(`/topics/${id}`);
+  const setView = (next) => navigate(next === 'careers' ? '/careers' : `/topics/${activeTopic}`);
   const [selected, setSelected] = useState(null);
   const [selectedFuture, setSelectedFuture] = useState(null);
   const [hovered, setHovered] = useState(null);
@@ -919,6 +928,33 @@ export default function App() {
   const { isOpen: mobileMenuOpen, toggle: toggleMobileMenu } = useModal(false);
 
   const topic = TOPICS[activeTopic];
+
+  useEffect(() => {
+    // Unknown topic slug -> fall back to the default topic URL.
+    if (topicId && !TOPICS[topicId]) navigate('/topics/kubernetes', { replace: true });
+  }, [topicId, navigate]);
+
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [location.pathname]);
+
+  useEffect(() => {
+    // Keep the selected topic pill visible when the pill bar is narrower than its content.
+    // Runs again once web fonts load, because the pills get wider at that point.
+    const center = () => {
+      const bar = document.querySelector('.topic-pills');
+      const pill = bar && bar.querySelector('button[data-active]');
+      if (!bar || !pill) return;
+      const target = pill.offsetLeft - bar.clientWidth / 2 + pill.offsetWidth / 2;
+      bar.scrollLeft = Math.max(0, target);
+    };
+    center();
+    const timer = setTimeout(center, 120);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(center);
+    return () => clearTimeout(timer);
+  }, [activeTopic, view]);
+
+  useEffect(() => {
+    document.title = view === 'careers' ? 'CloudTruck · Careers' : `CloudTruck · ${TOPICS[activeTopic].name}`;
+  }, [view, activeTopic]);
   const components = topic.components;
   const groups = topic.groups;
   const flows = topic.flows;
@@ -934,7 +970,7 @@ export default function App() {
           return (
             c.name.toLowerCase().includes(q) ||
             c.short.toLowerCase().includes(q) ||
-            c.intro.toLowerCase().includes(q) ||
+            (c.intro || '').toLowerCase().includes(q) ||
             (c.tag && c.tag.toLowerCase().includes(q))
           );
         })
@@ -1021,7 +1057,7 @@ export default function App() {
       return (
         c.name.toLowerCase().includes(q) ||
         c.short.toLowerCase().includes(q) ||
-        c.intro.toLowerCase().includes(q) ||
+        (c.intro || '').toLowerCase().includes(q) ||
         (c.tag && c.tag.toLowerCase().includes(q))
       );
     }
@@ -1049,36 +1085,40 @@ export default function App() {
       return (
         c.name.toLowerCase().includes(q) ||
         c.short.toLowerCase().includes(q) ||
-        c.intro.toLowerCase().includes(q) ||
+        (c.intro || '').toLowerCase().includes(q) ||
         (c.tag && c.tag.toLowerCase().includes(q))
       );
     });
   };
 
-  const liveStep = journey[activeJourney];
+  // Clamp: activeJourney is reset in an effect after topic changes, so the first
+  // render of a topic with a shorter journey would otherwise read past the array.
+  const journeyIdx = Math.min(activeJourney, journey.length - 1);
+  const liveStep = journey[journeyIdx];
   const relatedSteps = [
-    journey[(activeJourney - 1 + journey.length) % journey.length],
-    journey[activeJourney],
-    journey[(activeJourney + 1) % journey.length],
+    journey[(journeyIdx - 1 + journey.length) % journey.length],
+    journey[journeyIdx],
+    journey[(journeyIdx + 1) % journey.length],
   ];
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(circle at top left, #fff6d8 0%, #f8efe0 30%, #f5efe7 60%, #eef7ff 100%)',
+      background: '#f6f4f0',
       position: 'relative',
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
         * { box-sizing: border-box; }
-        body { margin: 0; background: #f7efe4; font-family: 'IBM Plex Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { margin: 0; background: #f6f4f0; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
 
         .grain::before {
           content: '';
           position: fixed; inset: 0;
-          background-image: radial-gradient(circle at 1px 1px, rgba(0,0,0,0.025) 1px, transparent 0);
-          background-size: 22px 22px;
+          background-image:
+            linear-gradient(to right, rgba(26,26,46,0.045) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(26,26,46,0.045) 1px, transparent 1px);
+          background-size: 40px 40px;
           pointer-events: none;
           z-index: 0;
         }
@@ -1110,95 +1150,171 @@ export default function App() {
 
         .scrollbar-styled::-webkit-scrollbar { width: 8px; height: 8px; }
         .scrollbar-styled::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-styled::-webkit-scrollbar-thumb { background: #d6cfbe; border-radius: 4px; }
-        .scrollbar-styled::-webkit-scrollbar-thumb:hover { background: #a89e85; }
+        .scrollbar-styled::-webkit-scrollbar-thumb { background: #c9c7c0; border-radius: 4px; }
+        .scrollbar-styled::-webkit-scrollbar-thumb:hover { background: #9391a0; }
 
+        .site-nav { display: flex; align-items: center; gap: 2px; margin: 0 0 10px; padding-bottom: 10px; border-bottom: 1px solid #e6e3dc; }
+        .site-nav-link {
+          display: inline-flex; align-items: center; gap: 5px;
+          border: none; background: transparent; cursor: pointer;
+          padding: 5px 8px; border-radius: 6px;
+          font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+          color: #5c5a6f; text-decoration: none; position: relative;
+          transition: color 0.2s ease, background 0.2s ease;
+        }
+        .site-nav-link::before { content: '['; color: #b2b0a9; margin-right: 2px; }
+        .site-nav-link::after { content: ']'; color: #b2b0a9; margin-left: 2px; }
+        .site-nav-link:hover { color: #1a1a2e; background: rgba(26,26,46,0.04); }
+        .site-nav-link.active { color: #e8653a; font-weight: 600; }
+        .site-nav-link.active::before, .site-nav-link.active::after { color: #e8653a; }
+        .ct-btn {
+          display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 6px;
+          font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+          text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
+        .ct-btn::before { content: '['; opacity: 0.7; } .ct-btn::after { content: ']'; opacity: 0.7; }
+        .ct-btn:hover { transform: translateY(-1px); }
+        .ct-btn-primary { background: #e8653a; color: #fff; border-color: #e8653a; box-shadow: 0 2px 0 #b84a26; }
+        .ct-btn-primary:hover { background: #1a1a2e; border-color: #1a1a2e; box-shadow: 0 2px 0 #0d0d18; }
+        .ct-btn-ghost { background: #fff; color: #1a1a2e; border-color: #dcdad4; box-shadow: 0 2px 0 #c9c7c0; }
+        .ct-btn-ghost:hover { border-color: #1a1a2e; }
+        .ct-topic-card {
+          display: block; text-align: left; text-decoration: none; background: #fff; border: 1px solid #dcdad4; border-bottom: 3px solid #c9c7c0;
+          border-radius: 10px; padding: 16px; transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .ct-topic-card:hover { transform: translateY(-3px); border-color: var(--card-accent, #1a1a2e); }
+        .ct-terminal { background: #1a1a2e; border: 1px solid #2d2d3f; border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -40px rgba(26,26,46,0.6); color: #e6e3dc; font-family: 'JetBrains Mono', monospace; }
+        .ct-terminal-bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: linear-gradient(#33333d, #2a2a32); border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .ct-terminal-dot { width: 11px; height: 11px; border-radius: 50%; }
+        .ct-terminal-body { padding: 18px 18px 20px; font-size: 12.5px; line-height: 1.75; min-height: 300px; }
+        .ct-terminal-line { display: flex; gap: 10px; align-items: flex-start; }
+        .ct-terminal-line.dim { opacity: 0.45; }
+        .ct-cursor { display: inline-block; width: 7px; height: 14px; background: #e8653a; vertical-align: -2px; margin-left: 4px; animation: ct-blink 1s steps(2) infinite; }
+        @keyframes ct-blink { to { opacity: 0; } }
         .header-shell { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-        .header-tools { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: flex-end; min-width: 0; }
-        .hero-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.85fr); gap: 26px; align-items: stretch; }
+        .header-tools { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+        .header-brand { flex-shrink: 0; }
+        .header-search { position: relative; flex: 0 1 300px; min-width: 170px; }
+        .header-play { flex-shrink: 0; }
+        .hero-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 32px; align-items: center; }
         .topic-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .diagram-grid { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 32px; margin-top: 30px; position: relative; z-index: 2; }
         .workflow-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(330px, 0.85fr); gap: 22px; align-items: stretch; }
-        .future-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .future-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
         .detail-panel { width: 480px; max-width: calc(100vw - 40px); }
-        .nav-pill { max-width: 100%; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-        .nav-pill::-webkit-scrollbar { display: none; }
-        .nav-pill > button { flex-shrink: 0; white-space: nowrap; }
 
         @media (max-width: 1120px) {
           .header-shell { flex-direction: column; align-items: stretch; }
           .header-tools { flex-wrap: wrap; justify-content: stretch; }
+          .topic-pills { flex-basis: 100%; }
+          .header-search { flex: 1 1 200px; }
           .hero-layout, .workflow-grid, .diagram-grid { grid-template-columns: minmax(0, 1fr); }
           .future-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
+        .topic-pills { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        .topic-pills::-webkit-scrollbar { display: none; }
+        .topic-pills > button { white-space: nowrap; flex-shrink: 0; }
         @media (max-width: 760px) {
-          header { padding: 16px 18px !important; }
+          header { position: relative !important; top: 0 !important; padding: 14px 16px !important; }
+          .diagram-hint { display: none; }
+          .diagram-label { left: 18px !important; right: 18px; }
+          .site-nav { flex-wrap: wrap; }
           .topic-row, .future-grid { grid-template-columns: 1fr; }
           .detail-panel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
-          .header-tools { gap: 10px; }
         }
       `}</style>
 
       <div className="grain" style={{ position: 'relative', zIndex: 1 }}>
         <header style={{
           position: 'sticky',
-          top: 0,
+          top: 12,
           zIndex: 30,
-          background: 'rgba(247, 239, 228, 0.86)',
-          backdropFilter: 'blur(14px)',
-          borderBottom: '1px solid #e8e0cc',
-          padding: '16px 32px',
+          width: 'calc(100% - 24px)',
+          maxWidth: 1340,
+          margin: '12px auto 0',
+          background: 'rgba(250, 249, 246, 0.95)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid #dcdad4',
+          borderBottom: '3px solid #b2b0a9',
+          borderRadius: 10,
+          padding: '12px 22px 14px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
         }}>
+          <nav className="site-nav" aria-label="Primary">
+            {[
+              { id: 'explainers', label: 'Explainers', to: `/topics/${activeTopic}` },
+              { id: 'careers', label: 'Careers', to: '/careers' },
+            ].map((item) => (
+              <Link
+                key={item.id}
+                to={item.to}
+                className={`site-nav-link ${view === item.id ? 'active' : ''}`}
+                style={{ '--nav-accent': topic.accent }}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <a
+              href="https://github.com/anaskmh/anatomyof-k8s"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="site-nav-link"
+              style={{ '--nav-accent': topic.accent }}
+            >
+              GitHub <ExternalLink size={10} />
+            </a>
+          </nav>
           <div className="header-shell">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="header-brand" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <AtlasMark />
               <div>
                 <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 10,
                   letterSpacing: '0.18em',
-                  color: '#8a8270',
+                  color: '#9391a0',
                   textTransform: 'uppercase',
                   marginBottom: 2,
                 }}>
                   DevOps Community
                 </div>
                 <div style={{
-                  fontFamily: "'Outfit', 'Instrument Serif', serif",
-                  fontSize: 28,
-                  letterSpacing: '-0.01em',
-                  fontWeight: 800,
+                  fontFamily: "'Space Grotesk', sans-serif",
+                  fontSize: 26,
+                  letterSpacing: '-0.03em',
+                  fontWeight: 700,
                 }}>
-                  <span style={{ color: '#0ea5e9' }}>Cloud</span>
-                  <span style={{ color: '#f97316' }}>Truck</span>
+                  <span style={{ color: '#1a1a2e' }}>Cloud</span>
+                  <span style={{ color: '#e8653a' }}>Truck</span>
                 </div>
               </div>
             </div>
 
             <div className="header-tools">
-              <div className="nav-pill" style={{
+              <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
                 padding: 6,
-                borderRadius: 999,
+                borderRadius: 8,
                 background: 'rgba(255,255,255,0.72)',
-                border: '1px solid #e8e0cc',
+                border: '1px solid #dcdad4',
                 boxShadow: '0 10px 22px -18px rgba(0,0,0,0.25)',
-              }}>
+              }} className="topic-pills">
                 {Object.values(TOPICS).map((entry) => (
                   <button
                     key={entry.id}
                     onClick={() => setActiveTopic(entry.id)}
+                    data-active={view === 'explainers' && entry.id === activeTopic ? 'true' : undefined}
                     style={{
                       border: 'none',
                       cursor: 'pointer',
-                      borderRadius: 999,
+                      borderRadius: 8,
                       padding: '10px 14px',
-                      background: entry.id === activeTopic ? entry.accent : 'transparent',
-                      color: entry.id === activeTopic ? '#fff' : '#2a2a2a',
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      background: view === 'explainers' && entry.id === activeTopic ? entry.accent : 'transparent',
+                      color: view === 'explainers' && entry.id === activeTopic ? '#fff' : '#1a1a2e',
+                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 11,
                       letterSpacing: '0.06em',
                     }}
@@ -1208,8 +1324,9 @@ export default function App() {
                 ))}
               </div>
 
-              <div ref={searchRef} style={{ position: 'relative', width: '100%', maxWidth: 360, minWidth: 0, flexShrink: 1 }}>
-                <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#8a8270', zIndex: 1 }} />
+              {view === 'explainers' && (<>
+              <div ref={searchRef} className="header-search">
+                <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9391a0', zIndex: 1 }} />
                 <input
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
@@ -1221,13 +1338,13 @@ export default function App() {
                     width: '100%',
                     padding: '9px 12px 9px 34px',
                     borderRadius: showSuggestions && suggestions.length > 0 ? '14px 14px 0 0' : 999,
-                    border: '1px solid #e8e0cc',
-                    borderBottom: showSuggestions && suggestions.length > 0 ? '1px solid #f0e8d8' : '1px solid #e8e0cc',
+                    border: '1px solid #dcdad4',
+                    borderBottom: showSuggestions && suggestions.length > 0 ? '1px solid #e6e3dc' : '1px solid #dcdad4',
                     background: '#fff',
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 12,
                     outline: 'none',
-                    color: '#2a2a2a',
+                    color: '#1a1a2e',
                   }}
                 />
                 {showSuggestions && suggestions.length > 0 && (
@@ -1237,7 +1354,7 @@ export default function App() {
                     left: 0,
                     right: 0,
                     background: '#fff',
-                    border: '1px solid #e8e0cc',
+                    border: '1px solid #dcdad4',
                     borderTop: 'none',
                     borderRadius: '0 0 14px 14px',
                     boxShadow: '0 12px 32px -8px rgba(0,0,0,0.14)',
@@ -1260,7 +1377,7 @@ export default function App() {
                           gap: 10,
                           padding: '9px 14px',
                           cursor: 'pointer',
-                          borderTop: idx > 0 ? '1px solid #f5f0e8' : 'none',
+                          borderTop: idx > 0 ? '1px solid #f0ece6' : 'none',
                         }}
                       >
                         <span style={{
@@ -1271,17 +1388,17 @@ export default function App() {
                           flexShrink: 0,
                           transform: 'rotate(45deg)',
                         }} />
-                        <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 13, color: '#1a1a1a', fontWeight: 500, flex: 1 }}>
+                        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: '#1a1a2e', fontWeight: 500, flex: 1 }}>
                           {c.name}
                         </span>
                         <span style={{
-                          fontFamily: "'IBM Plex Mono', monospace",
+                          fontFamily: "'JetBrains Mono', monospace",
                           fontSize: 10,
-                          color: '#8a8270',
+                          color: '#9391a0',
                           letterSpacing: '0.08em',
-                          background: '#f5f0e8',
+                          background: '#f0ece6',
                           padding: '2px 7px',
-                          borderRadius: 999,
+                          borderRadius: 8,
                         }}>
                           {c.tag || c.group}
                         </span>
@@ -1292,36 +1409,39 @@ export default function App() {
               </div>
 
               <button
+                className="header-play"
                 onClick={() => setIsPlaying(!isPlaying)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   padding: '8px 14px',
-                  border: '1px solid #e8e0cc',
+                  border: '1px solid #dcdad4',
                   background: '#fff',
-                  borderRadius: 999,
+                  borderRadius: 8,
                   cursor: 'pointer',
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 11,
                   letterSpacing: '0.05em',
-                  color: '#2a2a2a',
+                  color: '#1a1a2e',
                   whiteSpace: 'nowrap',
                 }}
               >
                 {isPlaying ? <Pause size={12} /> : <Play size={12} />}
                 {isPlaying ? 'PAUSE FLOW' : 'PLAY FLOW'}
               </button>
+              </>)}
             </div>
           </div>
         </header>
 
-        <section style={{ padding: '56px 24px 18px', maxWidth: 1400, margin: '0 auto' }}>
+        {view === 'explainers' ? (<>
+        <section style={{ padding: '36px 24px 8px', maxWidth: 1400, margin: '0 auto' }}>
           <div className="hero-layout">
-            <div style={{ padding: '24px 8px 24px 8px', alignSelf: 'start' }}>
+            <div style={{ padding: '8px 8px 16px 8px', alignSelf: 'center' }}>
               <div style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 11,
                 letterSpacing: '0.25em',
-                color: '#8a8270',
+                color: '#e8653a',
                 textTransform: 'uppercase',
                 marginBottom: 18,
               }}>
@@ -1337,23 +1457,24 @@ export default function App() {
                 {topic.eyebrow}
               </div>
               <h1 style={{
-                fontFamily: "'Instrument Serif', serif",
-                fontSize: 'clamp(44px, 7vw, 88px)',
-                lineHeight: 0.96,
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontSize: 'clamp(38px, 4.6vw, 62px)',
+                lineHeight: 1.02,
                 letterSpacing: '-0.03em',
                 margin: '0 0 18px',
-                fontWeight: 400,
-                maxWidth: 820,
+                fontWeight: 700,
+                maxWidth: 760,
               }}>
-                <em style={{ color: topic.accent, fontStyle: 'italic', fontWeight: 400 }}>{topic.name}</em>{' '}
+                <em style={{ color: '#e8653a', fontStyle: 'normal' }}>{topic.name}</em>{' '}
                 {activeTopic === 'docker' ? 'from build to runtime.' : 'architecture with the moving parts exposed.'}
               </h1>
               <p style={{
-                maxWidth: 720,
-                margin: '0 0 28px',
-                color: '#4a4636',
+                maxWidth: 640,
+                margin: '0 0 24px',
+                color: '#5c5a6f',
                 fontSize: 18,
                 lineHeight: 1.6,
+                fontWeight: 300,
               }}>
                 {topic.heroLead}
               </p>
@@ -1364,13 +1485,13 @@ export default function App() {
                     key={stat}
                     style={{
                       padding: '10px 14px',
-                      borderRadius: 999,
+                      borderRadius: 8,
                       border: `1px solid ${topic.accent}26`,
                       background: '#fff',
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 11,
                       letterSpacing: '0.08em',
-                      color: '#2a2a2a',
+                      color: '#1a1a2e',
                     }}
                   >
                     {stat}
@@ -1378,190 +1499,41 @@ export default function App() {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                {Object.values(TOPICS).map((entry) => (
-                  <button
-                    key={entry.id}
-                    onClick={() => setActiveTopic(entry.id)}
-                    style={{
-                      padding: '12px 18px',
-                      borderRadius: 999,
-                      border: `1px solid ${entry.id === activeTopic ? entry.accent : '#e8e0cc'}`,
-                      background: entry.id === activeTopic ? entry.accent : '#ffffff',
-                      color: entry.id === activeTopic ? '#ffffff' : '#1a1a1a',
-                      fontFamily: "'IBM Plex Sans', sans-serif",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {entry.name}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                <a href="#architecture" className="ct-btn ct-btn-primary">Explore the architecture <ChevronRight size={12} /></a>
+                <Link to="/careers" className="ct-btn ct-btn-ghost">Open positions</Link>
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(255,255,255,0.76)',
-              border: '1px solid #e8e0cc',
-              borderRadius: 24,
-              padding: 22,
-              boxShadow: '0 38px 70px -54px rgba(0,0,0,0.35)',
-              backdropFilter: 'blur(10px)',
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 18,
-              }}>
-                <div>
-                  <div style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10,
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: '#8a8270',
-                    marginBottom: 5,
-                  }}>
-                    Topic switcher
-                  </div>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, fontWeight: 400 }}>
-                    Start with <em style={{ color: topic.accent }}>{topic.name}</em>
-                  </div>
-                </div>
-                <div style={{
-                  padding: '8px 10px',
-                  borderRadius: 14,
-                  background: topic.accentSoft,
-                  color: topic.accent,
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  fontSize: 10,
-                  letterSpacing: '0.12em',
-                }}>
-                  live now
-                </div>
-              </div>
-
-              <div className="topic-row" style={{ marginBottom: 18 }}>
-                {Object.values(TOPICS).map((entry) => (
-                  <button
-                    key={entry.id}
-                    onClick={() => setActiveTopic(entry.id)}
-                    style={{
-                      textAlign: 'left',
-                      border: `1px solid ${entry.id === activeTopic ? entry.accent : '#e8e0cc'}`,
-                      background: entry.id === activeTopic ? `linear-gradient(135deg, #ffffff 0%, ${entry.accentSoft} 100%)` : '#fff',
-                      borderRadius: 18,
-                      padding: 18,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{
-                      display: 'inline-flex',
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      background: entry.accentSoft,
-                      color: entry.accent,
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontSize: 10,
-                      letterSpacing: '0.08em',
-                      marginBottom: 10,
-                    }}>
-                      {entry.name}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', lineHeight: 1.4 }}>
-                      {entry.short}
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {FUTURE_TOPICS.length > 0 && (
-              <div style={{ paddingTop: 16, borderTop: '1px solid #efe6d5' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  marginBottom: 12,
-                }}>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, lineHeight: 1, fontWeight: 400 }}>
-                    Future Topic Structure
-                  </div>
-                  <div style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10,
-                    letterSpacing: '0.12em',
-                    color: '#8a8270',
-                    textTransform: 'uppercase',
-                  }}>
-                    click a card
-                  </div>
-                </div>
-                <div className="future-grid">
-                  {FUTURE_TOPICS.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedFuture(item)}
-                      style={{
-                        textAlign: 'left',
-                        border: '1px solid #e8e0cc',
-                        background: '#fff',
-                        borderRadius: 16,
-                        padding: 16,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 3,
-                        background: item.color,
-                        transform: 'rotate(45deg)',
-                        marginBottom: 10,
-                      }} />
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 6 }}>
-                        {item.title}
-                      </div>
-                      <div style={{ fontSize: 12.5, color: '#6b6552', lineHeight: 1.5 }}>
-                        {item.blurb}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              )}
-            </div>
+            <HeroTerminal topic={topic} journey={journey} activeIndex={journeyIdx} />
           </div>
         </section>
 
-        <section style={{ maxWidth: 1400, margin: '40px auto', padding: '0 24px' }}>
+        <section id="architecture" style={{ maxWidth: 1400, margin: '32px auto', padding: '0 24px', scrollMarginTop: 140 }}>
           <div
             ref={containerRef}
             style={{
               position: 'relative',
               background: 'rgba(255,255,255,0.92)',
-              border: '1px solid #e8e0cc',
+              border: '1px solid #dcdad4',
               borderRadius: 24,
               padding: '56px 42px 42px',
               boxShadow: '0 1px 0 rgba(255,255,255,0.8) inset, 0 40px 80px -40px rgba(0,0,0,0.12), 0 12px 24px -12px rgba(0,0,0,0.06)',
               minHeight: 640,
             }}
           >
-            <div style={{
+            <div className="diagram-label" style={{
               position: 'absolute', top: 20, left: 32,
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 10, letterSpacing: '0.18em', color: '#8a8270', textTransform: 'uppercase',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10, letterSpacing: '0.18em', color: '#9391a0', textTransform: 'uppercase',
             }}>
               <span style={{ display: 'inline-block', width: 6, height: 6, background: topic.accent, borderRadius: '50%', marginRight: 8, animation: 'pulse-dot 1.5s infinite' }} />
               {topic.diagramLabel}
             </div>
-            <div style={{
+            <div className="diagram-hint" style={{
               position: 'absolute', top: 20, right: 32,
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: 10, letterSpacing: '0.18em', color: '#8a8270', textTransform: 'uppercase',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10, letterSpacing: '0.18em', color: '#9391a0', textTransform: 'uppercase',
             }}>
               {topic.panelHint}
             </div>
@@ -1658,8 +1630,8 @@ export default function App() {
                     top: -13, left: 18,
                     background: group.color,
                     padding: '5px 14px',
-                    borderRadius: 999,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    borderRadius: 8,
+                    fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase',
                     color: '#fff', fontWeight: 600,
                     boxShadow: `0 4px 12px -2px ${group.color}80`,
@@ -1674,8 +1646,8 @@ export default function App() {
                     background: '#fff',
                     border: `1.5px solid ${group.color}`,
                     padding: '2px 10px',
-                    borderRadius: 999,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    borderRadius: 8,
+                    fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 10,
                     color: group.color,
                     fontWeight: 600,
@@ -1709,19 +1681,19 @@ export default function App() {
           </div>
         </section>
 
-        <section style={{ maxWidth: 1400, margin: '80px auto 40px', padding: '0 24px' }}>
+        <section style={{ maxWidth: 1400, margin: '56px auto 32px', padding: '0 24px' }}>
           <div style={{ marginBottom: 32 }}>
             <h2 style={{
-              fontFamily: "'Instrument Serif', serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               fontSize: 48,
               letterSpacing: '-0.02em',
-              fontWeight: 400,
+              fontWeight: 700,
               lineHeight: 1.05,
               margin: 0,
             }}>
-              {topic.sectionsTitle} <em style={{ color: topic.accent, fontStyle: 'italic' }}>in context</em>
+              {topic.sectionsTitle} <em style={{ color: '#e8653a', fontStyle: 'normal' }}>in context</em>
             </h2>
-            <p style={{ color: '#6b6552', fontSize: 17, marginTop: 12, maxWidth: 760 }}>
+            <p style={{ color: '#5c5a6f', fontSize: 17, marginTop: 12, maxWidth: 760 }}>
               {topic.sectionsLead}
             </p>
           </div>
@@ -1740,15 +1712,15 @@ export default function App() {
                   borderBottom: `1px solid ${sec.color}33`,
                 }}>
                   <div style={{ width: 8, height: 8, borderRadius: 2, background: sec.color, transform: 'rotate(45deg)' }} />
-                  <h3 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, letterSpacing: '-0.01em', fontWeight: 400, margin: 0 }}>
+                  <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 30, letterSpacing: '-0.01em', fontWeight: 700, margin: 0 }}>
                     {sec.title}
                   </h3>
-                  <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#8a8270', letterSpacing: '0.12em' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#9391a0', letterSpacing: '0.12em' }}>
                     {filtered.length} components
                   </span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                   {filtered.map((id, ci) => (
                     <SecondaryCard
                       key={id}
@@ -1769,11 +1741,11 @@ export default function App() {
 
           {search && suggestions.length === 0 && (
             <div style={{
-              border: '1px dashed #d6cfbe',
+              border: '1px dashed #c9c7c0',
               borderRadius: 18,
               padding: 22,
               background: 'rgba(255,255,255,0.64)',
-              color: '#6b6552',
+              color: '#5c5a6f',
               fontSize: 15,
             }}>
               {topic.emptySearch}
@@ -1781,46 +1753,45 @@ export default function App() {
           )}
         </section>
 
-        <section style={{ maxWidth: 1400, margin: '80px auto 40px', padding: '0 24px' }}>
+        <section style={{ maxWidth: 1400, margin: '56px auto 32px', padding: '0 24px' }}>
           <h2 style={{
-            fontFamily: "'Instrument Serif', serif",
+            fontFamily: "'Space Grotesk', sans-serif",
             fontSize: 48,
             letterSpacing: '-0.02em',
-            fontWeight: 400,
+            fontWeight: 700,
             lineHeight: 1.05,
             margin: '0 0 12px',
           }}>
             {topic.workflowTitle}
           </h2>
-          <p style={{ color: '#6b6552', fontSize: 17, marginBottom: 36, maxWidth: 680 }}>
+          <p style={{ color: '#5c5a6f', fontSize: 17, marginBottom: 36, maxWidth: 680 }}>
             {topic.workflowLead}
           </p>
 
           <div className="workflow-grid">
             <div style={{
               background: 'rgba(255,255,255,0.82)',
-              border: '1px solid #e8e0cc',
+              border: '1px solid #dcdad4',
               borderRadius: 24,
               padding: 20,
               boxShadow: '0 30px 60px -48px rgba(0,0,0,0.34)',
             }}>
               <div className="scrollbar-styled" style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
                 {journey.map((step, i) => {
-                  const isActive = i === activeJourney;
+                  const isActive = i === journeyIdx;
                   return (
                     <motion.button
                       key={step.title}
-                      initial={{ opacity: 0, y: 18 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.3 }}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.45, delay: i * 0.03 }}
                       onClick={() => setActiveJourney(i)}
                       style={{
                         minWidth: 250,
                         textAlign: 'left',
                         background: isActive ? `linear-gradient(160deg, ${topic.accent} 0%, #101828 160%)` : '#fff',
-                        color: isActive ? '#fff' : '#1a1a1a',
-                        border: `1px solid ${isActive ? topic.accent : '#e8e0cc'}`,
+                        color: isActive ? '#fff' : '#1a1a2e',
+                        border: `1px solid ${isActive ? topic.accent : '#dcdad4'}`,
                         borderRadius: 18,
                         padding: 20,
                         scrollSnapAlign: 'start',
@@ -1828,30 +1799,30 @@ export default function App() {
                       }}
                     >
                       <div style={{
-                        fontFamily: "'Instrument Serif', serif",
+                        fontFamily: "'Space Grotesk', sans-serif",
                         fontSize: 44,
-                        fontStyle: 'italic',
-                        color: isActive ? 'rgba(255,255,255,0.28)' : '#d6cfbe',
+                        fontStyle: 'normal',
+                        color: isActive ? 'rgba(255,255,255,0.28)' : '#c9c7c0',
                         lineHeight: 1,
-                        fontWeight: 400,
+                        fontWeight: 700,
                       }}>
                         {String(i + 1).padStart(2, '0')}
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 700, marginTop: 8, marginBottom: 6 }}>
                         {step.title}
                       </div>
-                      <div style={{ fontSize: 12.5, color: isActive ? 'rgba(255,255,255,0.82)' : '#6b6552', lineHeight: 1.55 }}>
+                      <div style={{ fontSize: 12.5, color: isActive ? 'rgba(255,255,255,0.82)' : '#5c5a6f', lineHeight: 1.55 }}>
                         {step.desc}
                       </div>
                       <div style={{
                         marginTop: 14,
                         padding: '4px 8px',
-                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontFamily: "'JetBrains Mono', monospace",
                         fontSize: 10,
-                        background: isActive ? 'rgba(255,255,255,0.14)' : '#1a1a1a',
-                        color: '#fbf8f1',
+                        background: isActive ? 'rgba(255,255,255,0.14)' : '#1a1a2e',
+                        color: '#ffffff',
                         display: 'inline-block',
-                        borderRadius: 999,
+                        borderRadius: 8,
                         letterSpacing: '0.04em',
                       }}>
                         {step.actor}
@@ -1879,7 +1850,7 @@ export default function App() {
               }} />
               <div style={{ padding: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'relative' }}>
                 <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 10,
                   letterSpacing: '0.18em',
                   textTransform: 'uppercase',
@@ -1889,20 +1860,20 @@ export default function App() {
                   {topic.workflowRealtimeLabel}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, lineHeight: 1, fontWeight: 400 }}>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 34, lineHeight: 1, fontWeight: 700 }}>
                     {liveStep.title}
                   </div>
-                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#cbd5e1' }}>
-                    {String(activeJourney + 1).padStart(2, '0')} / {journey.length}
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#cbd5e1' }}>
+                    {String(journeyIdx + 1).padStart(2, '0')} / {journey.length}
                   </div>
                 </div>
-                <div style={{ width: '100%', height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14 }}>
+                <div style={{ width: '100%', height: 8, borderRadius: 8, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14 }}>
                   <motion.div
-                    key={`${activeTopic}-${activeJourney}`}
+                    key={`${activeTopic}-${journeyIdx}`}
                     initial={{ width: 0 }}
-                    animate={{ width: `${((activeJourney + 1) / journey.length) * 100}%` }}
+                    animate={{ width: `${((journeyIdx + 1) / journey.length) * 100}%` }}
                     transition={{ duration: 0.45, ease: 'easeOut' }}
-                    style={{ height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${topic.accent}, #f8fafc)` }}
+                    style={{ height: '100%', borderRadius: 8, background: `linear-gradient(90deg, ${topic.accent}, #f8fafc)` }}
                   />
                 </div>
                 <div style={{ fontSize: 14, lineHeight: 1.6, color: '#dbe5f2' }}>
@@ -1916,7 +1887,7 @@ export default function App() {
                   borderRadius: 14,
                   background: 'rgba(2,6,23,0.88)',
                   border: '1px solid rgba(255,255,255,0.08)',
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 11,
                   color: '#86efac',
                   marginBottom: 16,
@@ -1926,7 +1897,7 @@ export default function App() {
                 </div>
 
                 <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 10,
                   letterSpacing: '0.16em',
                   color: '#94a3b8',
@@ -1952,7 +1923,7 @@ export default function App() {
                           <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>
                             {step.title}
                           </div>
-                          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: isCurrent ? '#7dd3fc' : '#94a3b8' }}>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: isCurrent ? '#7dd3fc' : '#94a3b8' }}>
                             {isCurrent ? 'active' : 'queued'}
                           </div>
                         </div>
@@ -1968,105 +1939,102 @@ export default function App() {
           </div>
         </section>
 
-        <section style={{ maxWidth: 1020, margin: '80px auto', padding: '0 24px' }}>
+        <section style={{ maxWidth: 1020, margin: '56px auto', padding: '0 24px' }}>
           <h2 style={{
-            fontFamily: "'Instrument Serif', serif",
+            fontFamily: "'Space Grotesk', sans-serif",
             fontSize: 42,
             letterSpacing: '-0.02em',
-            fontWeight: 400,
+            fontWeight: 700,
             margin: '0 0 20px',
           }}>
             {topic.compareTitle}
           </h2>
           {topic.compareParagraphs.map((paragraph) => (
-            <p key={paragraph} style={{ fontSize: 17, color: '#3a3628', lineHeight: 1.7, marginBottom: 16 }}>
+            <p key={paragraph} style={{ fontSize: 17, color: '#2d2d3f', lineHeight: 1.7, marginBottom: 16 }}>
               {paragraph}
             </p>
           ))}
         </section>
 
-        {FUTURE_TOPICS.length > 0 && (
-        <section style={{ maxWidth: 1400, margin: '40px auto 80px', padding: '0 24px' }}>
-          <div style={{ background: 'rgba(255,255,255,0.78)', border: '1px solid #e8e0cc', borderRadius: 24, padding: 22 }}>
+        <section style={{ maxWidth: 1400, margin: '32px auto 64px', padding: '0 24px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.78)', border: '1px solid #dcdad4', borderRadius: 24, padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
               <div>
                 <div style={{
-                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontFamily: "'JetBrains Mono', monospace",
                   fontSize: 10,
                   letterSpacing: '0.16em',
                   textTransform: 'uppercase',
-                  color: '#8a8270',
+                  color: '#e8653a',
                   marginBottom: 5,
                 }}>
-                  Roadmap
+                  Keep exploring
                 </div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, fontWeight: 400 }}>
-                  Future Topic Structure
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 34, lineHeight: 1, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  More topics
                 </div>
               </div>
-              <div style={{ fontSize: 14, color: '#6b6552', maxWidth: 500 }}>
-                Each upcoming topic will open with the same interactive architecture, examples, workflow trace, and troubleshooting surface.
+              <div style={{ fontSize: 14, color: '#5c5a6f', maxWidth: 500 }}>
+                Every topic opens with the same interactive architecture, component cards, workflow trace, and mental model.
               </div>
             </div>
             <div className="future-grid">
-              {FUTURE_TOPICS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedFuture(item)}
-                  style={{
-                    textAlign: 'left',
-                    background: '#fff',
-                    border: '1px solid #e8e0cc',
-                    borderRadius: 18,
-                    padding: 18,
-                    cursor: 'pointer',
-                  }}
+              {Object.values(TOPICS).filter((entry) => entry.id !== activeTopic).map((entry) => (
+                <Link
+                  key={entry.id}
+                  to={`/topics/${entry.id}`}
+                  className="ct-topic-card"
+                  style={{ '--card-accent': entry.accent }}
                 >
                   <div style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 8,
-                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 10,
-                    color: item.color,
+                    color: entry.accent,
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
                     marginBottom: 10,
                   }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, transform: 'rotate(45deg)' }} />
-                    Coming soon
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: entry.accent, transform: 'rotate(45deg)' }} />
+                    {entry.heroStats[0]}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#1a1a1a' }}>
-                    {item.title}
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6, color: '#1a1a2e', fontFamily: "'Space Grotesk', sans-serif" }}>
+                    {entry.name}
                   </div>
-                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: '#6b6552' }}>
-                    {item.blurb}
+                  <div style={{ fontSize: 12.5, lineHeight: 1.55, color: '#5c5a6f' }}>
+                    {entry.short}
                   </div>
-                </button>
+                </Link>
               ))}
             </div>
           </div>
         </section>
+        </>) : (
+          <Suspense fallback={<div style={{ minHeight: '60vh' }} />}>
+            <CareersPage accent="#e8653a" onOpenTopic={(id) => navigate(`/topics/${id}`)} />
+          </Suspense>
         )}
 
         <footer style={{
           padding: '48px 32px 40px',
           textAlign: 'center',
-          borderTop: '1px solid #e8e0cc',
+          borderTop: '1px solid #dcdad4',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: 18,
         }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#8a8270', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#9391a0', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
             Built by
           </div>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 28, fontWeight: 400, letterSpacing: '-0.01em', color: '#1a1a1a' }}>
-            Anas <em style={{ fontStyle: 'italic', color: topic.accent }}>Kadambalath</em>
+          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 28, fontWeight: 700, letterSpacing: '-0.01em', color: '#1a1a2e' }}>
+            Anas <em style={{ fontStyle: 'normal', color: '#e8653a' }}>Kadambalath</em>
           </div>
 
           <div style={{ display: 'flex', gap: 14, marginTop: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <a href="https://github.com/anaskmh" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub · anaskmh" style={socialLinkStyle('#1a1a1a')} onMouseEnter={(e) => hoverIn(e, '#1a1a1a')} onMouseLeave={(e) => hoverOut(e, '#1a1a1a')}>
+            <a href="https://github.com/anaskmh" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub · anaskmh" style={socialLinkStyle('#1a1a2e')} onMouseEnter={(e) => hoverIn(e, '#1a1a2e')} onMouseLeave={(e) => hoverOut(e, '#1a1a2e')}>
               <Github size={18} />
               <span style={socialLabelStyle}>GitHub</span>
             </a>
@@ -2082,7 +2050,7 @@ export default function App() {
 
           <VisitorCounter />
 
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: '#b0a892', letterSpacing: '0.16em', marginTop: 6 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#9391a0', letterSpacing: '0.16em', marginTop: 6 }}>
             {topic.footerTicker}
           </div>
         </footer>
@@ -2100,10 +2068,10 @@ export default function App() {
               top: 80,
               right: 20,
               bottom: 20,
-              background: '#fbf8f1',
-              border: '1.5px solid #1a1a1a',
+              background: '#ffffff',
+              border: '1.5px solid #1a1a2e',
               borderRadius: 18,
-              boxShadow: '10px 12px 0 #1a1a1a, 0 30px 80px -20px rgba(0,0,0,0.35)',
+              boxShadow: '10px 12px 0 #1a1a2e, 0 30px 80px -20px rgba(0,0,0,0.35)',
               zIndex: 60,
               display: 'flex',
               flexDirection: 'column',
@@ -2155,8 +2123,8 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: 'min(560px, 100%)',
-                background: '#fbf8f1',
-                border: '1.5px solid #1a1a1a',
+                background: '#ffffff',
+                border: '1.5px solid #1a1a2e',
                 borderRadius: 22,
                 boxShadow: '0 40px 80px -44px rgba(0,0,0,0.45)',
                 overflow: 'hidden',
@@ -2174,6 +2142,68 @@ export default function App() {
 // ============================================================
 // ATLAS MARK
 // ============================================================
+function HeroTerminal({ topic, journey, activeIndex }) {
+  const done = journey.slice(0, activeIndex);
+  const current = journey[activeIndex];
+  const queued = journey.slice(activeIndex + 1, activeIndex + 3);
+  return (
+    <div className="ct-terminal" aria-label="Live workflow trace">
+      <div className="ct-terminal-bar">
+        <span className="ct-terminal-dot" style={{ background: '#ff5f57' }} />
+        <span className="ct-terminal-dot" style={{ background: '#febc2e' }} />
+        <span className="ct-terminal-dot" style={{ background: '#28c840' }} />
+        <span style={{ marginLeft: 10, fontSize: 11, color: '#9391a0', letterSpacing: '0.04em' }}>
+          cloudtruck@{topic.id} ~ zsh
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9391a0', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          {String(activeIndex + 1).padStart(2, '0')} / {journey.length}
+        </span>
+      </div>
+      <div className="ct-terminal-body">
+        <div className="ct-terminal-line" style={{ marginBottom: 10 }}>
+          <span style={{ color: '#e8653a' }}>➜</span>
+          <span style={{ color: '#7dd3fc' }}>~</span>
+          <span style={{ color: '#f8fafc' }}>{topic.workflowCommand}</span>
+        </div>
+        {done.slice(-4).map((step) => (
+          <div key={step.title} className="ct-terminal-line dim">
+            <span style={{ color: '#4ade80' }}>✓</span>
+            <span>{step.title}</span>
+          </div>
+        ))}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={current.title}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="ct-terminal-line" style={{ color: '#f8fafc', fontWeight: 600 }}>
+              <span style={{ color: '#e8653a' }}>●</span>
+              <span>{current.title}</span>
+            </div>
+            <div style={{ color: '#9391a0', paddingLeft: 22, fontSize: 12, lineHeight: 1.6, margin: '2px 0 6px' }}>
+              {current.desc}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+        {queued.map((step) => (
+          <div key={step.title} className="ct-terminal-line dim">
+            <span style={{ color: '#9391a0' }}>○</span>
+            <span>{step.title}</span>
+          </div>
+        ))}
+        <div className="ct-terminal-line" style={{ marginTop: 12 }}>
+          <span style={{ color: '#e8653a' }}>➜</span>
+          <span style={{ color: '#7dd3fc' }}>~</span>
+          <span className="ct-cursor" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AtlasMark() {
   return (
     <img
@@ -2233,13 +2263,13 @@ function ComponentCard({ id, data, onClick, onHover, onLeave, active, dim, refCa
           background: `linear-gradient(135deg, ${accent}, ${accentDark})`,
           color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 700,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
           boxShadow: `0 2px 6px -1px ${accent}60`,
         }}>
           {initialsOf(data.name)}
         </div>
       </div>
-      <div style={{ fontSize: 11.5, color: '#6b6552', marginTop: 3, fontFamily: "'IBM Plex Mono', monospace", paddingLeft: 6 }}>
+      <div style={{ fontSize: 11.5, color: '#5c5a6f', marginTop: 3, fontFamily: "'JetBrains Mono', monospace", paddingLeft: 6 }}>
         {data.short}
       </div>
 
@@ -2251,7 +2281,7 @@ function ComponentCard({ id, data, onClick, onHover, onLeave, active, dim, refCa
               border: '1.5px solid #ea580c',
               borderRadius: 7,
               padding: 6,
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 9,
               position: 'relative',
               textAlign: 'center',
@@ -2263,7 +2293,7 @@ function ComponentCard({ id, data, onClick, onHover, onLeave, active, dim, refCa
                 boxShadow: '0 0 5px #16a34a',
               }} />
               <div style={{ fontWeight: 700, color: '#ea580c' }}>{name}</div>
-              <div style={{ color: '#6b6552', fontSize: 8 }}>nginx:1.25</div>
+              <div style={{ color: '#5c5a6f', fontSize: 8 }}>nginx:1.25</div>
             </div>
           ))}
         </div>
@@ -2278,15 +2308,14 @@ function ComponentCard({ id, data, onClick, onHover, onLeave, active, dim, refCa
 function SecondaryCard({ id, data, accent, onClick, delay }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
       whileHover={{ y: -4, boxShadow: `4px 6px 0 ${accent}` }}
       onClick={onClick}
       style={{
         background: '#fff',
-        border: '1px solid #e8e0cc',
+        border: '1px solid #dcdad4',
         borderRadius: 12,
         padding: 16,
         cursor: 'pointer',
@@ -2299,13 +2328,13 @@ function SecondaryCard({ id, data, accent, onClick, delay }) {
           width: 28, height: 28, borderRadius: 6,
           background: accent, color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 700,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
         }}>
           {initialsOf(data.name)}
         </div>
         <div style={{ fontWeight: 600, fontSize: 14 }}>{data.name}</div>
       </div>
-      <div style={{ fontSize: 12, color: '#6b6552', lineHeight: 1.45, fontFamily: "'IBM Plex Mono', monospace" }}>
+      <div style={{ fontSize: 12, color: '#5c5a6f', lineHeight: 1.45, fontFamily: "'JetBrains Mono', monospace" }}>
         {data.short}
       </div>
     </motion.div>
@@ -2320,7 +2349,7 @@ function ComingSoonPanel({ item, copy, onClose }) {
     <>
       <div style={{
         padding: '20px 22px 16px',
-        borderBottom: '1px solid #e8e0cc',
+        borderBottom: '1px solid #dcdad4',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -2328,7 +2357,7 @@ function ComingSoonPanel({ item, copy, onClose }) {
       }}>
         <div>
           <div style={{
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontSize: 9,
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
@@ -2338,17 +2367,17 @@ function ComingSoonPanel({ item, copy, onClose }) {
             Stay tuned
           </div>
           <div style={{
-            fontFamily: "'Instrument Serif', serif",
+            fontFamily: "'Space Grotesk', sans-serif",
             fontSize: 34,
             lineHeight: 1,
-            fontWeight: 400,
+            fontWeight: 700,
           }}>
             {item.title}
           </div>
         </div>
         <button onClick={onClose} style={{
           background: 'transparent',
-          border: '1px solid #d6cfbe',
+          border: '1px solid #c9c7c0',
           width: 30,
           height: 30,
           borderRadius: 7,
@@ -2356,7 +2385,7 @@ function ComingSoonPanel({ item, copy, onClose }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#6b6552',
+          color: '#5c5a6f',
         }}>
           <X size={16} />
         </button>
@@ -2368,10 +2397,10 @@ function ComingSoonPanel({ item, copy, onClose }) {
           alignItems: 'center',
           gap: 8,
           padding: '6px 10px',
-          borderRadius: 999,
+          borderRadius: 8,
           background: `${item.color}14`,
           color: item.color,
-          fontFamily: "'IBM Plex Mono', monospace",
+          fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10,
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
@@ -2380,19 +2409,19 @@ function ComingSoonPanel({ item, copy, onClose }) {
           <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color, transform: 'rotate(45deg)' }} />
           Coming soon
         </div>
-        <p style={{ fontSize: 15, color: '#3a3628', lineHeight: 1.65, margin: '0 0 16px' }}>
+        <p style={{ fontSize: 15, color: '#2d2d3f', lineHeight: 1.65, margin: '0 0 16px' }}>
           {copy}
         </p>
         <div style={{
-          border: '1px dashed #d6cfbe',
+          border: '1px dashed #c9c7c0',
           borderRadius: 16,
           padding: 16,
           background: '#fff',
         }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e', marginBottom: 8 }}>
             Planned scope
           </div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#6b6552' }}>
+          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#5c5a6f' }}>
             {item.blurb}
           </div>
         </div>
@@ -2409,7 +2438,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
     <>
       <div style={{
         padding: '18px 22px 14px',
-        borderBottom: '1px solid #e8e0cc',
+        borderBottom: '1px solid #dcdad4',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 12,
       }}>
@@ -2418,13 +2447,13 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
             width: 32, height: 32, borderRadius: 7,
             background: data.color, color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 700,
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700,
           }}>
             {initialsOf(data.name)}
           </div>
           <div>
             <div style={{
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 9,
               letterSpacing: '0.14em',
               color: data.color,
@@ -2434,9 +2463,9 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
               {data.tag}
             </div>
             <div style={{
-              fontFamily: "'Instrument Serif', serif",
+              fontFamily: "'Space Grotesk', sans-serif",
               fontSize: 24,
-              fontWeight: 400,
+              fontWeight: 700,
               letterSpacing: '-0.01em',
               lineHeight: 1.1,
             }}>
@@ -2446,25 +2475,26 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
         </div>
         <button onClick={onClose} style={{
           background: 'transparent',
-          border: '1px solid #d6cfbe',
+          border: '1px solid #c9c7c0',
           width: 30, height: 30,
           borderRadius: 7,
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#6b6552',
+          color: '#5c5a6f',
         }}>
           <X size={16} />
         </button>
       </div>
 
       <div className="scrollbar-styled" style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
-        <p style={{ fontSize: 14, color: '#3a3628', lineHeight: 1.6, margin: '0 0 20px' }}>
+        <p style={{ fontSize: 14, color: '#2d2d3f', lineHeight: 1.6, margin: '0 0 20px' }}>
           {data.intro}
         </p>
 
         {/* REAL EXAMPLE BLOCK */}
+        {data.example && (
         <div style={{
-          background: '#1a1a1a',
+          background: '#1a1a2e',
           border: `1.5px solid ${data.color}`,
           borderRadius: 10,
           padding: '14px 16px',
@@ -2474,7 +2504,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
         }}>
           <div style={{
             position: 'absolute', top: 10, right: 12,
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontSize: 9, letterSpacing: '0.16em',
             color: data.color, fontWeight: 600,
           }}>
@@ -2482,38 +2512,38 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
           </div>
           <div style={{
             fontSize: 12,
-            color: '#a89e85',
-            fontFamily: "'IBM Plex Mono', monospace",
+            color: '#9391a0',
+            fontFamily: "'JetBrains Mono', monospace",
             marginBottom: 6,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
           }}>
             Scenario
           </div>
-          <div style={{ fontSize: 13, color: '#fbf8f1', lineHeight: 1.55, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: '#ffffff', lineHeight: 1.55, marginBottom: 14 }}>
             {data.example.scenario}
           </div>
 
           <div style={{
             fontSize: 12,
-            color: '#a89e85',
-            fontFamily: "'IBM Plex Mono', monospace",
+            color: '#9391a0',
+            fontFamily: "'JetBrains Mono', monospace",
             marginBottom: 6,
             textTransform: 'uppercase',
             letterSpacing: '0.08em',
           }}>
             What happens
           </div>
-          <div style={{ fontSize: 13, color: '#fbf8f1', lineHeight: 1.55, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: '#ffffff', lineHeight: 1.55, marginBottom: 14 }}>
             {data.example.action}
           </div>
 
           <pre style={{
             background: '#0a0a0a',
-            border: '1px solid #2a2a2a',
+            border: '1px solid #1a1a2e',
             borderRadius: 6,
             padding: '10px 12px',
-            fontFamily: "'IBM Plex Mono', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontSize: 11,
             color: '#a8e063',
             overflow: 'auto',
@@ -2525,12 +2555,14 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
             {data.example.code}
           </pre>
         </div>
+        )}
 
+        {data.responsibilities && data.responsibilities.length > 0 && (<>
         <div style={{
-          fontFamily: "'IBM Plex Mono', monospace",
+          fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10,
           letterSpacing: '0.16em',
-          color: '#8a8270',
+          color: '#9391a0',
           textTransform: 'uppercase',
           marginBottom: 10,
         }}>
@@ -2542,8 +2574,8 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
               position: 'relative',
               padding: '7px 0 7px 20px',
               fontSize: 13,
-              color: '#3a3628',
-              borderBottom: i < data.responsibilities.length - 1 ? '1px dashed #e8e0cc' : 'none',
+              color: '#2d2d3f',
+              borderBottom: i < data.responsibilities.length - 1 ? '1px dashed #dcdad4' : 'none',
               lineHeight: 1.5,
             }}>
               <span style={{
@@ -2554,15 +2586,16 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
             </li>
           ))}
         </ul>
+        </>)}
 
         {/* DEEP DIVE PARAGRAPH */}
         {data.deepDive && (
           <>
             <div style={{
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 10,
               letterSpacing: '0.16em',
-              color: '#8a8270',
+              color: '#9391a0',
               textTransform: 'uppercase',
               margin: '24px 0 10px',
               display: 'flex',
@@ -2574,7 +2607,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
             </div>
             <p style={{
               fontSize: 13.5,
-              color: '#3a3628',
+              color: '#2d2d3f',
               lineHeight: 1.7,
               margin: '0 0 18px',
               padding: '14px 16px',
@@ -2590,10 +2623,10 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
         {data.troubleshooting && (
           <>
             <div style={{
-              fontFamily: "'IBM Plex Mono', monospace",
+              fontFamily: "'JetBrains Mono', monospace",
               fontSize: 10,
               letterSpacing: '0.16em',
-              color: '#8a8270',
+              color: '#9391a0',
               textTransform: 'uppercase',
               margin: '24px 0 10px',
             }}>
@@ -2606,26 +2639,26 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
               padding: 16,
               marginBottom: 16,
             }}>
-              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ fontSize: 12, color: '#9391a0', fontFamily: "'JetBrains Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Symptom
               </div>
               <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#1f2937', marginBottom: 14 }}>
                 {data.troubleshooting.symptom}
               </div>
 
-              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ fontSize: 12, color: '#9391a0', fontFamily: "'JetBrains Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Checks
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 14px' }}>
                 {data.troubleshooting.checks.map((check) => (
-                  <li key={check} style={{ position: 'relative', padding: '0 0 8px 18px', fontSize: 13, color: '#3a3628', lineHeight: 1.5 }}>
+                  <li key={check} style={{ position: 'relative', padding: '0 0 8px 18px', fontSize: 13, color: '#2d2d3f', lineHeight: 1.5 }}>
                     <span style={{ position: 'absolute', left: 0, top: 0, color: data.color, fontWeight: 700 }}>•</span>
                     {check}
                   </li>
                 ))}
               </ul>
 
-              <div style={{ fontSize: 12, color: '#8a8270', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ fontSize: 12, color: '#9391a0', fontFamily: "'JetBrains Mono', monospace", marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Fix
               </div>
               <div style={{ fontSize: 13.5, lineHeight: 1.6, color: '#1f2937', marginBottom: 14 }}>
@@ -2634,10 +2667,10 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
 
               <pre style={{
                 background: '#0a0a0a',
-                border: '1px solid #2a2a2a',
+                border: '1px solid #1a1a2e',
                 borderRadius: 6,
                 padding: '10px 12px',
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 11,
                 color: '#93c5fd',
                 overflow: 'auto',
@@ -2668,7 +2701,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
               color: '#ffffff',
               borderRadius: 10,
               textDecoration: 'none',
-              fontFamily: "'IBM Plex Sans', sans-serif",
+              fontFamily: "'Inter', sans-serif",
               fontSize: 13,
               fontWeight: 600,
               boxShadow: `0 6px 14px -4px ${data.color}70`,
@@ -2685,7 +2718,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
+                fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 9,
                 letterSpacing: '0.16em',
                 textTransform: 'uppercase',
@@ -2702,18 +2735,18 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
 
       <div style={{
         padding: '12px 22px',
-        borderTop: '1px solid #e8e0cc',
+        borderTop: '1px solid #dcdad4',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
-        color: '#8a8270',
+        color: '#9391a0',
       }}>
         <button
           onClick={onPrev}
           disabled={index <= 1}
           style={{
             background: 'transparent', border: 'none', cursor: index <= 1 ? 'not-allowed' : 'pointer',
-            color: index <= 1 ? '#c8bfa8' : '#1a1a1a',
+            color: index <= 1 ? '#c8bfa8' : '#1a1a2e',
             fontFamily: 'inherit', fontSize: 11,
             padding: '5px 10px', borderRadius: 6,
             display: 'flex', alignItems: 'center', gap: 4,
@@ -2727,7 +2760,7 @@ function DetailPanel({ id, data, onClose, onPrev, onNext, index, total }) {
           disabled={index >= total}
           style={{
             background: 'transparent', border: 'none', cursor: index >= total ? 'not-allowed' : 'pointer',
-            color: index >= total ? '#c8bfa8' : '#1a1a1a',
+            color: index >= total ? '#c8bfa8' : '#1a1a2e',
             fontFamily: 'inherit', fontSize: 11,
             padding: '5px 10px', borderRadius: 6,
             display: 'flex', alignItems: 'center', gap: 4,
@@ -2772,16 +2805,12 @@ function VisitorCounter() {
         const display = VISITOR_BASE + real;
         setCount(display);
 
-        // Animate the number scrolling up
         const start = VISITOR_BASE;
         const diff = display - start;
         const duration = 1400;
         const startTime = performance.now();
-
         const step = (now) => {
-          const elapsed = now - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          // ease-out cubic
+          const progress = Math.min((now - startTime) / duration, 1);
           const eased = 1 - Math.pow(1 - progress, 3);
           setAnimCount(Math.floor(start + diff * eased));
           if (progress < 1) requestAnimationFrame(step);
@@ -2789,7 +2818,6 @@ function VisitorCounter() {
         requestAnimationFrame(step);
       })
       .catch(() => {
-        // API unavailable — show base count
         setCount(VISITOR_BASE);
         setAnimCount(VISITOR_BASE);
       });
@@ -2803,17 +2831,17 @@ function VisitorCounter() {
       gap: 6,
       padding: '18px 32px',
       borderRadius: 16,
-      border: '1px solid #e8e0cc',
+      border: '1px solid #dcdad4',
       background: 'linear-gradient(135deg, #fff 0%, #f9f5ee 100%)',
       boxShadow: '0 4px 16px -6px rgba(50,108,229,0.10)',
       minWidth: 180,
     }}>
       <div style={{
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         fontSize: 9,
         letterSpacing: '0.22em',
         textTransform: 'uppercase',
-        color: '#8a8270',
+        color: '#9391a0',
         display: 'flex',
         alignItems: 'center',
         gap: 6,
@@ -2828,9 +2856,9 @@ function VisitorCounter() {
         Total Visitors
       </div>
       <div style={{
-        fontFamily: "'Instrument Serif', serif",
+        fontFamily: "'Space Grotesk', sans-serif",
         fontSize: 36,
-        fontWeight: 400,
+        fontWeight: 700,
         letterSpacing: '-0.03em',
         color: '#326ce5',
         lineHeight: 1,
@@ -2841,9 +2869,9 @@ function VisitorCounter() {
         {count === null ? '—' : animCount.toLocaleString()}
       </div>
       <div style={{
-        fontFamily: "'IBM Plex Mono', monospace",
+        fontFamily: "'JetBrains Mono', monospace",
         fontSize: 9,
-        color: '#b0a892',
+        color: '#9391a0',
         letterSpacing: '0.10em',
       }}>
         and counting
@@ -2858,12 +2886,12 @@ const socialLinkStyle = (accent) => ({
   alignItems: 'center',
   gap: 8,
   padding: '10px 16px',
-  borderRadius: 999,
+  borderRadius: 8,
   border: `1.5px solid ${accent}30`,
   background: '#ffffff',
   color: accent,
   textDecoration: 'none',
-  fontFamily: "'IBM Plex Sans', sans-serif",
+  fontFamily: "'Inter', sans-serif",
   fontSize: 13,
   fontWeight: 600,
   letterSpacing: '0.02em',
@@ -2873,7 +2901,7 @@ const socialLinkStyle = (accent) => ({
 });
 
 const socialLabelStyle = {
-  fontFamily: "'IBM Plex Sans', sans-serif",
+  fontFamily: "'Inter', sans-serif",
 };
 
 function hoverIn(e, accent) {
@@ -3479,8 +3507,7 @@ const DOCKER_JOURNEY = [
   { title: 'Troubleshoot live behavior', desc: 'If something fails, use logs, inspect, and exec to debug the running container in real time.', actor: 'ops' },
 ];
 
-// All topics are now live — no future/coming-soon placeholders.
-const FUTURE_TOPICS = [];
+// All topics are live — no future/coming-soon placeholders.
 
 const TOPICS = {
   kubernetes: {

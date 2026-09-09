@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import './styles/responsive.css';
 @import './styles/animations.css';
 
@@ -11,9 +12,27 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+  --ct-bg: #f6f4f0;
+  --ct-surface: #ffffff;
+  --ct-surface-alt: #faf9f6;
+  --ct-ink: #1a1a2e;
+  --ct-ink-2: #2d2d3f;
+  --ct-muted: #5c5a6f;
+  --ct-faint: #9391a0;
+  --ct-line: #dcdad4;
+  --ct-line-strong: #b2b0a9;
+  --ct-accent: #e8653a;
+  --ct-accent-2: #f2845a;
+  --ct-font-display: 'Space Grotesk', sans-serif;
+  --ct-font-body: 'Inter', sans-serif;
+  --ct-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+}
+
 body {
-  background: #fbf8f1;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  background: var(--ct-bg);
+  color: var(--ct-ink);
+  font-family: var(--ct-font-body), system-ui, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
@@ -33,8 +52,11 @@ html, body {
 }
 
 /* Ensure code blocks are readable */
+/* Emphasis words are colored, not italic, in this theme */
+em { font-style: normal; }
+
 code, pre {
-  font-family: 'Courier New', monospace;
+  font-family: var(--ct-font-mono);
   background: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
   border-radius: 3px;

@@ -8,17 +8,25 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:migrate": "node scripts/db/migrate.mjs",
+    "db:extract": "node scripts/db/extract-jobs.mjs",
+    "db:seed": "node scripts/db/seed-jobs.mjs",
+    "db:refresh": "npm run db:extract && npm run db:seed -- --close-missing"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
+    "dotenv": "^17.4.2",
     "framer-motion": "^11.11.0",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",
+    "pdfjs-dist": "^6.3.289",
     "vite": "^5.4.10"
   }
 }
