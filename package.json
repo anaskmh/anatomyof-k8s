@@ -3,11 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "CloudTruck — Interactive visual explainers for Kubernetes, Docker, and modern DevOps systems",
+  "description": "CloudTruck \u2014 Interactive visual explainers for Kubernetes, Docker, and modern DevOps systems",
   "author": "Anas Kadambalath",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build/prerender-routes.mjs",
     "preview": "vite preview",
     "db:migrate": "node scripts/db/migrate.mjs",
     "db:extract": "node scripts/db/extract-jobs.mjs",

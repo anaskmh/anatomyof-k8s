@@ -5,6 +5,14 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/careers",
+      "destination": "/careers/index.html"
+    },
+    {
+      "source": "/topics/:topic",
+      "destination": "/topics/:topic/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/"
     }

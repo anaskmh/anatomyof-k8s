@@ -48,6 +48,10 @@ The app uses React Router. Each view has its own URL, so pages can be linked and
 
 Unknown routes redirect to the default topic. The Careers page is code-split and only downloads when visited. The Vercel rewrite in `vercel.json` serves `index.html` for every non-API path so deep links work in production.
 
+### Link previews (Open Graph)
+
+Link scrapers do not run JavaScript, so `npm run build` also runs `scripts/build/prerender-routes.mjs`, which writes a route-specific `index.html` (title, description, canonical URL, Open Graph and Twitter tags) for `/careers` and every `/topics/:topic` route. `vercel.json` rewrites those paths to their prerendered files. Edit the copy in `ROUTES` inside that script. The preview images in `public/og/` are generated once with `python3 scripts/build/og-images.py` (needs Pillow and the brand fonts) and committed.
+
 The job board calls `/api/jobs`, which the Vite dev server mounts from `api/jobs.js` (see `vite.config.js`). It needs `DATABASE_URL` in a local `.env` file; copy `.env.example` and fill it in from the Neon dashboard. Without it the rest of the site works and the board shows an offline message.
 
 ## Jobs database
