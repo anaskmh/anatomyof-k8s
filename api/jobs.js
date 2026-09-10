@@ -6,7 +6,7 @@
 //   experience  exact match on experience           e.g. experience=Mid-Senior
 //   status      open (default) | closed | all
 //   q           free-text search over title, company, skills, location
-//   limit       max rows (default 300, max 500)
+//   limit       max rows (default 500, max 1000)
 // Response: { jobs: [...], total, facets: { roles, categories, countries, experiences } }
 //
 // Runs as a Vercel serverless function in production and is mounted by the
@@ -17,7 +17,7 @@ import { neon } from '@neondatabase/serverless';
 const JOB_COLUMNS = `
   id, category, role_type, title, company, location, country,
   to_char(posted_on, 'YYYY-MM-DD') AS posted_on,
-  experience, skills, salary, source, apply_url, status,
+  experience, employment_type, skills, salary, source, apply_url, status,
   to_char(collected_on, 'YYYY-MM-DD') AS collected_on
 `;
 
@@ -40,7 +40,7 @@ export async function queryJobs(params = {}) {
     const p = bind(`%${params.q.trim()}%`);
     where.push(`(title ILIKE ${p} OR company ILIKE ${p} OR coalesce(skills, '') ILIKE ${p} OR coalesce(location, '') ILIKE ${p})`);
   }
-  const limit = Math.min(Math.max(parseInt(params.limit, 10) || 300, 1), 500);
+  const limit = Math.min(Math.max(parseInt(params.limit, 10) || 500, 1), 1000);
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const [jobs, roles, categories, countries, experiences] = await Promise.all([

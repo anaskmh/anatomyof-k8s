@@ -61,13 +61,15 @@ Job data lives in a Neon Postgres table (`jobs`) and is served by the Vercel fun
 | Command | What it does |
 | --- | --- |
 | `npm run db:migrate` | Create or update the `jobs` table from `scripts/db/schema.sql` |
-| `npm run db:extract` | Parse the PDFs in `docs/jobs/` (text plus hyperlinked apply URLs) into `data/jobs.json` |
+| `npm run db:extract` | Parse the PDFs in `docs/jobs/` (text plus hyperlinked apply URLs) into `data/jobs.json`, merging duplicate postings |
 | `npm run db:seed` | Upsert `data/jobs.json` into the table, matched on `external_key` |
-| `npm run db:refresh` | Extract and seed, then mark rows missing from the PDFs as `closed` |
+| `npm run db:refresh` | Extract and seed, delete duplicate rows, then mark rows missing from the PDFs as `closed` |
 
-To load a new batch of vacancies, drop the updated PDFs in `docs/jobs/`, adjust `SOURCES` in `scripts/db/extract-jobs.mjs` if the filenames or columns changed, and run `npm run db:refresh`.
+To load a new batch of vacancies, drop the PDF in `docs/jobs/`, add it to `SOURCES` in `scripts/db/extract-jobs.mjs` (layout `numbered` for the per-country tables with a row number column, or `daily` for the "Daily Job Report" format with per-source sections), and run `npm run db:refresh`.
 
-`GET /api/jobs` accepts `role`, `category`, `country`, `experience`, `status` (`open` by default, or `closed` / `all`), `q`, and `limit`. It returns the matching jobs plus facet counts for the filter dropdowns.
+The extractor merges duplicates before writing `data/jobs.json`: two rows are the same posting when they share a job-site id (LinkedIn id, Indeed `jk`, Naukri `jid`) or the same title, company, location, and country. The first (oldest) row keeps its `external_key` and gains the extra source (for example `LinkedIn + Indeed`), so re-listed jobs update in place instead of appearing twice. `db:refresh` deletes database rows that turn out to be duplicates and closes the rest of the rows missing from the PDFs.
+
+`GET /api/jobs` accepts `role`, `category`, `country`, `experience`, `status` (`open` by default, or `closed` / `all`), `q`, and `limit` (default 500, max 1000). It returns the matching jobs plus facet counts for the filter dropdowns.
 
 ## Build for production
 

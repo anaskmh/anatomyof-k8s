@@ -77,6 +77,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
   const queryString = useMemo(() => {
     const p = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => { if (v) p.set(k, v); });
+    p.set('limit', '1000'); // paginate client-side; never truncate the board
     return p.toString();
   }, [filters]);
 
@@ -99,6 +100,10 @@ export default function JobsBoard({ accent = '#326ce5' }) {
   const activeCount = Object.entries(filters).filter(([k, v]) => v && !(k === 'status' && v === 'open')).length;
   const openTotal = data.facets.roles.reduce((a, r) => a + r.count, 0);
   const countryCount = (name) => data.facets.countries.find((c) => c.value === name)?.count || 0;
+  const latestCollected = useMemo(() => {
+    const latest = data.jobs.reduce((m, j) => (j.collected_on && j.collected_on > m ? j.collected_on : m), '');
+    return latest ? new Date(`${latest}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
+  }, [data.jobs]);
   const pageCount = Math.max(1, Math.ceil(data.jobs.length / PAGE_SIZE));
   const pageJobs = data.jobs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const pageLabel = data.jobs.length
@@ -146,7 +151,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
             Roles hiring <em style={{ fontStyle: 'normal', color: accent }}>right now</em>
           </h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: '#5c5a6f', maxWidth: 680, margin: 0 }}>
-            Vacancies collected from LinkedIn and Indeed on 9 September 2026. Filter by position, country, or level, then apply directly on the original posting.
+            Vacancies collected from LinkedIn, Indeed, and Naukri Gulf{latestCollected ? `, last updated ${latestCollected}` : ''}. Duplicate postings across sites are merged. Filter by position, country, or level, then apply directly on the original posting.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -275,7 +280,10 @@ export default function JobsBoard({ accent = '#326ce5' }) {
                       <div style={{ fontFamily: MONO, fontSize: 10, color: '#9391a0', marginTop: 2, paddingLeft: 18 }}>{job.country === 'Saudi Arabia' ? 'KSA' : 'UAE'}</div>
                     </td>
                     <td style={{ whiteSpace: 'nowrap', fontFamily: MONO, fontSize: 11.5 }}>{formatDate(job.posted_on)}</td>
-                    <td style={{ fontFamily: MONO, fontSize: 11 }}>{job.experience || '—'}</td>
+                    <td style={{ fontFamily: MONO, fontSize: 11 }}>
+                      {job.experience || '—'}
+                      {job.employment_type && <div style={{ fontSize: 10, color: '#9391a0', marginTop: 2 }}>{job.employment_type}</div>}
+                    </td>
                     <td style={{ fontFamily: MONO, fontSize: 11 }}>{job.salary || '—'}</td>
                     <td style={{ textAlign: 'right' }}>
                       {job.apply_url ? (
@@ -315,6 +323,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
                 <div className="jobs-card-meta">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={11} />{job.location || job.country} · {job.country === 'Saudi Arabia' ? 'KSA' : 'UAE'}</span>
                   {job.experience && <span>{job.experience}</span>}
+                  {job.employment_type && <span>{job.employment_type}</span>}
                   {job.salary && <span>{job.salary}</span>}
                 </div>
                 {job.apply_url && (

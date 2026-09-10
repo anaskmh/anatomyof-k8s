@@ -10,15 +10,19 @@ CREATE TABLE IF NOT EXISTS jobs (
   country       TEXT NOT NULL,                 -- 'United Arab Emirates' | 'Saudi Arabia'
   posted_on     DATE,
   experience    TEXT,                          -- Entry level / Associate / Mid-Senior / Director / Internship
+  employment_type TEXT,                        -- Full-time / Contract (only in the daily-report PDFs)
   skills        TEXT,
   salary        TEXT,
-  source        TEXT,                          -- LinkedIn / Indeed / LinkedIn + Indeed
+  source        TEXT,                          -- LinkedIn / Indeed / Naukri Gulf, '+'-joined when merged
   apply_url     TEXT,
   status        TEXT NOT NULL DEFAULT 'open',  -- open | closed
   collected_on  DATE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Added after the first deploy; safe on tables created from the full definition above.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS employment_type TEXT;
 
 CREATE INDEX IF NOT EXISTS jobs_role_type_idx  ON jobs (role_type);
 CREATE INDEX IF NOT EXISTS jobs_country_idx    ON jobs (country);
