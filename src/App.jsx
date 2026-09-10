@@ -2787,6 +2787,16 @@ const VISITOR_BASE = 4341;
 // Abacus (https://abacus.jasoncameron.dev) — free, CORS-enabled hit counter.
 // Replaces api.countapi.xyz, which was shut down and no longer resolves.
 const VISITOR_COUNTER_KEY = 'cloudtruck-devops/visitors';
+// Marks this browser as already counted so refreshes, topic switches, and
+// return visits read the counter (/get) instead of incrementing it (/hit).
+const VISITED_FLAG = 'cloudtruck-visited';
+
+const alreadyCounted = () => {
+  try { return localStorage.getItem(VISITED_FLAG) === '1'; } catch { return true; }
+};
+const markCounted = () => {
+  try { localStorage.setItem(VISITED_FLAG, '1'); } catch { /* storage blocked: count nothing rather than over-count */ }
+};
 
 function VisitorCounter() {
   const [count, setCount] = useState(null);
@@ -2797,14 +2807,18 @@ function VisitorCounter() {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    // hit Abacus — increments on every real page load for the CloudTruck counter
-    fetch(`https://abacus.jasoncameron.dev/hit/${VISITOR_COUNTER_KEY}`)
+    // First visit from this browser increments the counter; every later load only reads it.
+    const isNew = !alreadyCounted();
+    if (isNew) markCounted();
+    fetch(`https://abacus.jasoncameron.dev/${isNew ? 'hit' : 'get'}/${VISITOR_COUNTER_KEY}`)
       .then((r) => r.json())
       .then((data) => {
         const real = data.value || 0;
         const display = VISITOR_BASE + real;
         setCount(display);
 
+        // requestAnimationFrame is paused in background tabs, so skip the count-up there.
+        if (document.hidden) { setAnimCount(display); return; }
         const start = VISITOR_BASE;
         const diff = display - start;
         const duration = 1400;
