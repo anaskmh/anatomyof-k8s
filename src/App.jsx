@@ -2042,7 +2042,7 @@ export default function App() {
               <Linkedin size={18} />
               <span style={socialLabelStyle}>LinkedIn</span>
             </a>
-            <a href="https://medium.com/@anaskmh" target="_blank" rel="noopener noreferrer" aria-label="Medium" title="Medium · @anaskmh" style={socialLinkStyle('#000000')} onMouseEnter={(e) => hoverIn(e, '#000000')} onMouseLeave={(e) => hoverOut(e, '#000000')}>
+            <a href="https://medium.com/@cloudtruck" target="_blank" rel="noopener noreferrer" aria-label="Medium" title="Medium · @cloudtruck" style={socialLinkStyle('#000000')} onMouseEnter={(e) => hoverIn(e, '#000000')} onMouseLeave={(e) => hoverOut(e, '#000000')}>
               <MediumIcon size={18} />
               <span style={socialLabelStyle}>Medium</span>
             </a>
