@@ -16,7 +16,7 @@ const sql = neon(url);
 const jobs = JSON.parse(readFileSync(new URL('../../data/jobs.json', import.meta.url), 'utf8'));
 const closeMissing = process.argv.includes('--close-missing');
 
-const COLS = ['external_key', 'category', 'role_type', 'title', 'company', 'location', 'country', 'posted_on', 'experience', 'employment_type', 'skills', 'salary', 'source', 'apply_url', 'status', 'collected_on'];
+const COLS = ['external_key', 'category', 'role_type', 'title', 'company', 'location', 'country', 'posted_on', 'experience', 'employment_type', 'skills', 'salary', 'source', 'apply_url', 'contact_name', 'contact_email', 'contact_url', 'status', 'collected_on'];
 const CHUNK = 50;
 let upserted = 0;
 

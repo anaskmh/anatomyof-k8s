@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ExternalLink, Search, RefreshCw, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, Search, RefreshCw, MapPin, ChevronLeft, ChevronRight, Mail, UserRound } from 'lucide-react';
 
 const MONO = "'JetBrains Mono', monospace";
 const SERIF = "'Space Grotesk', sans-serif";
@@ -30,6 +30,29 @@ const formatDate = (iso) => {
   const d = new Date(`${iso}T00:00:00Z`);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 };
+
+// Recruiter contact published with the posting: an HR email when the job site
+// lists one, otherwise the LinkedIn recruiter who posted it.
+function JobContact({ job, compact = false }) {
+  if (job.contact_email) {
+    return (
+      <a className="jobs-contact" href={`mailto:${job.contact_email}`} title={`Email ${job.contact_email}`}>
+        <Mail size={11} style={{ flexShrink: 0 }} />
+        <span className="jobs-contact-text">{job.contact_email}</span>
+      </a>
+    );
+  }
+  if (job.contact_name || job.contact_url) {
+    const label = job.contact_name || 'Recruiter';
+    const inner = (<><UserRound size={11} style={{ flexShrink: 0 }} /><span className="jobs-contact-text">{label}</span></>);
+    return job.contact_url ? (
+      <a className="jobs-contact" href={job.contact_url} target="_blank" rel="noopener noreferrer" title={`${label} on LinkedIn`}>{inner}</a>
+    ) : (
+      <span className="jobs-contact" style={{ cursor: 'default' }}>{inner}</span>
+    );
+  }
+  return compact ? null : <span style={{ fontFamily: MONO, fontSize: 10.5, color: '#9391a0' }}>—</span>;
+}
 
 const selectStyle = {
   appearance: 'none',
@@ -115,7 +138,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
       <style>{`
         .jobs-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
         .jobs-table-wrap { overflow-x: auto; border: 1px solid #dcdad4; border-bottom: 3px solid #b2b0a9; border-radius: 10px; background: #ffffff; }
-        .jobs-table { width: 100%; border-collapse: collapse; min-width: 980px; table-layout: fixed; }
+        .jobs-table { width: 100%; border-collapse: collapse; min-width: 1120px; table-layout: fixed; }
         .jobs-table th { font-family: ${MONO}; font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #9391a0; text-align: left; padding: 14px 14px 10px; border-bottom: 1px solid #dcdad4; white-space: nowrap; background: #faf9f6; }
         .jobs-table td { padding: 11px 12px; border-bottom: 1px solid #e6e3dc; vertical-align: middle; font-size: 13px; color: #2d2d3f; }
         .jobs-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; font-family: ${MONO}; font-size: 11px; color: #5c5a6f; letter-spacing: 0.04em; }
@@ -127,6 +150,9 @@ export default function JobsBoard({ accent = '#326ce5' }) {
         .jobs-table tbody tr:hover { background: #fff; }
         .jobs-apply { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; border: 1.5px solid #e8653a; background: #e8653a; color: #fff; font-family: ${MONO}; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; white-space: nowrap; transition: transform 0.15s ease, background 0.15s ease; }
         .jobs-apply:hover { transform: translateY(-1px); background: #1a1a2e; border-color: #1a1a2e; }
+        .jobs-contact { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-family: ${MONO}; font-size: 11px; color: #1a1a2e; text-decoration: none; border-bottom: 1px solid #dcdad4; padding-bottom: 1px; transition: border-color 0.15s ease, color 0.15s ease; }
+        .jobs-contact:hover { color: #e8653a; border-color: #e8653a; }
+        .jobs-contact-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .jobs-search { position: relative; flex: 1; min-width: 220px; }
         .jobs-search input { width: 100%; padding: 9px 12px 9px 34px; border-radius: 8px; border: 1px solid #dcdad4; background: #fff; font-family: ${MONO}; font-size: 12px; color: #1a1a2e; outline: none; }
         .jobs-search input:focus { border-color: #1a1a2e; }
@@ -151,7 +177,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
             Roles hiring <em style={{ fontStyle: 'normal', color: accent }}>right now</em>
           </h2>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: '#5c5a6f', maxWidth: 680, margin: 0 }}>
-            Vacancies collected from LinkedIn, Indeed, and Naukri Gulf{latestCollected ? `, last updated ${latestCollected}` : ''}. Duplicate postings across sites are merged. Filter by position, country, or level, then apply directly on the original posting.
+            Vacancies collected from LinkedIn, Indeed, and Naukri Gulf{latestCollected ? `, last updated ${latestCollected}` : ''}. Duplicate postings across sites are merged. Filter by position, country, or level, then apply directly on the original posting, or reach the recruiter or HR contact where one was published.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -237,6 +263,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
                 <th style={{ width: 84 }}>Posted</th>
                 <th style={{ width: 104 }}>Level</th>
                 <th style={{ width: 112 }}>Salary</th>
+                <th style={{ width: 170 }}>Contact</th>
                 <th style={{ width: 118, textAlign: 'right' }}>Apply</th>
               </tr>
             </thead>
@@ -244,14 +271,14 @@ export default function JobsBoard({ accent = '#326ce5' }) {
               {state === 'loading' && data.jobs.length === 0 && (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`sk-${i}`}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <td key={j}><span style={{ display: 'block', height: 12, borderRadius: 6, background: '#e6e3dc', width: j === 1 ? '60%' : '80%' }} /></td>
                     ))}
                   </tr>
                 ))
               )}
               {state === 'ready' && data.jobs.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 36, color: '#9391a0', fontFamily: MONO, fontSize: 12 }}>No positions match those filters.</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 36, color: '#9391a0', fontFamily: MONO, fontSize: 12 }}>No positions match those filters.</td></tr>
               )}
               {pageJobs.map((job) => {
                 const color = roleColor(job.role_type);
@@ -285,6 +312,7 @@ export default function JobsBoard({ accent = '#326ce5' }) {
                       {job.employment_type && <div style={{ fontSize: 10, color: '#9391a0', marginTop: 2 }}>{job.employment_type}</div>}
                     </td>
                     <td style={{ fontFamily: MONO, fontSize: 11 }}>{job.salary || '—'}</td>
+                    <td style={{ overflow: 'hidden' }}><JobContact job={job} /></td>
                     <td style={{ textAlign: 'right' }}>
                       {job.apply_url ? (
                         <a className="jobs-apply" href={job.apply_url} target="_blank" rel="noopener noreferrer" style={{ '--apply-accent': color }}>
@@ -326,11 +354,14 @@ export default function JobsBoard({ accent = '#326ce5' }) {
                   {job.employment_type && <span>{job.employment_type}</span>}
                   {job.salary && <span>{job.salary}</span>}
                 </div>
-                {job.apply_url && (
-                  <a className="jobs-apply" href={job.apply_url} target="_blank" rel="noopener noreferrer" style={{ justifySelf: 'start', marginTop: 2 }}>
-                    Apply <ExternalLink size={11} />
-                  </a>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 2, minWidth: 0 }}>
+                  {job.apply_url ? (
+                    <a className="jobs-apply" href={job.apply_url} target="_blank" rel="noopener noreferrer">
+                      Apply <ExternalLink size={11} />
+                    </a>
+                  ) : <span />}
+                  <JobContact job={job} compact />
+                </div>
               </article>
             );
           })}

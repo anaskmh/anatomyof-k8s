@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   salary        TEXT,
   source        TEXT,                          -- LinkedIn / Indeed / Naukri Gulf, '+'-joined when merged
   apply_url     TEXT,
+  contact_name  TEXT,                          -- recruiter who posted the job (LinkedIn), when listed
+  contact_email TEXT,                          -- HR / careers email published in the posting
+  contact_url   TEXT,                          -- recruiter's LinkedIn profile
   status        TEXT NOT NULL DEFAULT 'open',  -- open | closed
   collected_on  DATE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -23,6 +26,9 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 -- Added after the first deploy; safe on tables created from the full definition above.
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS employment_type TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS contact_name TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS contact_email TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS contact_url TEXT;
 
 CREATE INDEX IF NOT EXISTS jobs_role_type_idx  ON jobs (role_type);
 CREATE INDEX IF NOT EXISTS jobs_country_idx    ON jobs (country);
